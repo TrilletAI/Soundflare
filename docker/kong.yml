@@ -1,0 +1,56 @@
+_format_version: "1.1"
+_transform: true
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - X-Auth-Token
+        - apikey
+        - Authorization
+        - Range
+        - Prefer
+        - accept-profile
+        - content-profile
+        - x-supabase-api-version
+        - x-client-info
+        - x-supabase-auth-token
+      exposed_headers:
+        - "*"
+      credentials: true
+      max_age: 3600
+
+services:
+  - name: auth
+    url: http://soundflare-auth:8081
+    routes:
+      - name: auth-v1
+        paths:
+          - /auth/v1
+        strip_path: true
+
+  - name: rest
+    url: http://rest:3000
+    routes:
+      - name: rest-v1
+        paths:
+          - /rest/v1
+        strip_path: true
+
+# Note: This provides a minimal Supabase-compatible gateway
+# so the standard Supabase client can connect to http://localhost:54321

@@ -1,0 +1,811 @@
+{
+  "apiVersion": "v1.2",
+  "spec": {
+    "kind": "Workflow",
+    "spec": {
+      "type": "sequential",
+      "steps": [
+        {
+          "kind": "Project",
+          "ref": "project",
+          "spec": {
+            "name": "Supabase",
+            "color": "#36C884",
+            "description": "Supabase is an open source Firebase alternative. Start your project with a Postgres database, Authentication, instant APIs, Edge Functions, Realtime subscriptions, Storage, and Vector embeddings.",
+            "networking": {
+              "allowedIngressProjects": []
+            },
+            "clusterId": "trillet-gcp-cluster"
+          }
+        },
+        {
+          "kind": "Workflow",
+          "spec": {
+            "type": "sequential",
+            "context": {
+              "projectId": "${refs.project.id}"
+            },
+            "steps": [
+              {
+                "kind": "Workflow",
+                "spec": {
+                  "type": "parallel",
+                  "steps": [
+                    {
+                      "kind": "Addon",
+                      "ref": "minio",
+                      "spec": {
+                        "name": "minio",
+                        "type": "minio",
+                        "version": "20-latest",
+                        "billing": {
+                          "deploymentPlan": "nf-compute-200",
+                          "storage": 6144,
+                          "storageClass": "ssd",
+                          "replicas": 1
+                        },
+                        "tlsEnabled": false,
+                        "externalAccessEnabled": false,
+                        "ipPolicies": [],
+                        "typeSpecificSettings": {},
+                        "backupSchedules": []
+                      }
+                    },
+                    {
+                      "kind": "Addon",
+                      "spec": {
+                        "tlsEnabled": false,
+                        "billing": {
+                          "replicas": 1,
+                          "storage": 6144,
+                          "deploymentPlan": "nf-compute-200",
+                          "storageClass": "ssd"
+                        },
+                        "type": "postgresql",
+                        "name": "postgres",
+                        "version": "15",
+                        "customCredentials": {
+                          "dbName": "supabase"
+                        },
+                        "externalAccessEnabled": false,
+                        "ipPolicies": [],
+                        "typeSpecificSettings": {
+                          "postgresqlWalLevel": "logical"
+                        }
+                      },
+                      "ref": "postgres"
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "SecretGroup",
+                "spec": {
+                  "name": "supabase-general",
+                  "description": "Database connection details and shared environment variables.",
+                  "secretType": "environment",
+                  "priority": 10,
+                  "addonDependencies": [
+                    {
+                      "addonId": "${refs.postgres.id}",
+                      "keys": [
+                        {
+                          "keyName": "POSTGRES_URI_ADMIN",
+                          "aliases": [
+                            "DB_ADMIN_URL"
+                          ]
+                        },
+                        {
+                          "keyName": "HOST",
+                          "aliases": [
+                            "DB_HOST"
+                          ]
+                        },
+                        {
+                          "keyName": "PORT",
+                          "aliases": [
+                            "DB_PORT"
+                          ]
+                        },
+                        {
+                          "keyName": "ADMIN_PASSWORD",
+                          "aliases": [
+                            "DB_PASSWORD"
+                          ]
+                        },
+                        {
+                          "keyName": "ADMIN_USERNAME",
+                          "aliases": [
+                            "DB_USER"
+                          ]
+                        },
+                        {
+                          "keyName": "DATABASE",
+                          "aliases": [
+                            "DB_NAME"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "addonId": "${refs.minio.id}",
+                      "keys": [
+                        {
+                          "keyName": "MINIO_ENDPOINT",
+                          "aliases": [
+                            "GLOBAL_S3_ENDPOINT"
+                          ]
+                        },
+                        {
+                          "keyName": "ACCESS_KEY",
+                          "aliases": [
+                            "AWS_ACCESS_KEY_ID"
+                          ]
+                        },
+                        {
+                          "keyName": "SECRET_KEY",
+                          "aliases": [
+                            "AWS_SECRET_ACCESS_KEY"
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "secrets": {
+                    "variables": {
+                      "JWT_SECRET": "${args.JWT_SECRET}",
+                      "SERVICE_KEY": "${args.SUPABASE_SERVICE_KEY}",
+                      "ANON_KEY": "${args.SUPABASE_ANON_KEY}",
+                      "GLOBAL_S3_BUCKET": "supabase"
+                    }
+                  },
+                  "restrictions": {
+                    "restricted": false,
+                    "nfObjects": [],
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "kind": "Workflow",
+                "spec": {
+                  "type": "parallel",
+                  "steps": [
+                    {
+                      "kind": "Workflow",
+                      "spec": {
+                        "type": "sequential",
+                        "steps": [
+                          {
+                            "kind": "ManualJob",
+                            "spec": {
+                              "runOnSourceChange": "never",
+                              "backoffLimit": 0,
+                              "activeDeadlineSeconds": 600,
+                              "runtimeEnvironment": {},
+                              "runtimeFiles": {
+                                "/db/init/initial-schema.sql": {
+                                  "data": "LS0gY3JlYXRlIHB1YmxpY2F0aW9uIHN1cGFiYXNlX3JlYWx0aW1lOyAtLSBkZWZhdWx0cyB0byBlbXB0eSBwdWJsaWNhdGlvbgpjcmVhdGUgcHVibGljYXRpb24gc3VwYWJhc2VfcmVhbHRpbWU7CmNyZWF0ZSBzY2hlbWEgaWYgbm90IGV4aXN0cyBfcmVhbHRpbWU7CmNyZWF0ZSBzY2hlbWEgaWYgbm90IGV4aXN0cyByZWFsdGltZTsKCi0tIEV4dGVuc2lvbiBuYW1lc3BhY2luZwpjcmVhdGUgc2NoZW1hIGlmIG5vdCBleGlzdHMgZXh0ZW5zaW9uczsKY3JlYXRlIGV4dGVuc2lvbiBpZiBub3QgZXhpc3RzICJ1dWlkLW9zc3AiICAgICAgd2l0aCBzY2hlbWEgZXh0ZW5zaW9uczsKY3JlYXRlIGV4dGVuc2lvbiBpZiBub3QgZXhpc3RzIHBnY3J5cHRvICAgICAgICAgd2l0aCBzY2hlbWEgZXh0ZW5zaW9uczsKY3JlYXRlIGV4dGVuc2lvbiBpZiBub3QgZXhpc3RzIHBnand0ICAgICAgICAgICAgd2l0aCBzY2hlbWEgZXh0ZW5zaW9uczsKCi0tIFNldCB1cCBhdXRoIHJvbGVzIGZvciB0aGUgZGV2ZWxvcGVyCmNyZWF0ZSByb2xlIGFub24gICAgICAgICAgICAgICAgbm9sb2dpbiBub2luaGVyaXQ7CmNyZWF0ZSByb2xlIGF1dGhlbnRpY2F0ZWQgICAgICAgbm9sb2dpbiBub2luaGVyaXQ7IC0tICJsb2dnZWQgaW4iIHVzZXI6IHdlYl91c2VyLCBhcHBfdXNlciwgZXRjCmNyZWF0ZSByb2xlIHNlcnZpY2Vfcm9sZSAgICAgICAgbm9sb2dpbiBub2luaGVyaXQ7IC0tIGFsbG93IGRldmVsb3BlcnMgdG8gY3JlYXRlIEpXVCdzIHRoYXQgYnlwYXNzIHRoZWlyIHBvbGljaWVzCgpjcmVhdGUgdXNlciBhdXRoZW50aWNhdG9yIG5vaW5oZXJpdDsKYWx0ZXIgdXNlciBhdXRoZW50aWNhdG9yIHdpdGggcGFzc3dvcmQgJyR7REJfUEFTU1dPUkR9JzsKCmdyYW50IGF1dGhlbnRpY2F0b3IgICAgIHRvICIke0RCX1VTRVJ9IjsKZ3JhbnQgIiR7REJfVVNFUn0iICAgICAgICB0byBhdXRoZW50aWNhdG9yOwpncmFudCBhbm9uICAgICAgICAgICAgICB0byBhdXRoZW50aWNhdG9yOwpncmFudCBhdXRoZW50aWNhdGVkICAgICB0byBhdXRoZW50aWNhdG9yOwpncmFudCBzZXJ2aWNlX3JvbGUgICAgICB0byBhdXRoZW50aWNhdG9yOwoKZ3JhbnQgdXNhZ2UgICAgICAgICAgICAgICAgICAgICBvbiBzY2hlbWEgcHVibGljIHRvIGFub24sIGF1dGhlbnRpY2F0ZWQsIHNlcnZpY2Vfcm9sZTsKYWx0ZXIgZGVmYXVsdCBwcml2aWxlZ2VzIGluIHNjaGVtYSBwdWJsaWMgZ3JhbnQgYWxsIG9uIHRhYmxlcyB0byBhbm9uLCBhdXRoZW50aWNhdGVkLCBzZXJ2aWNlX3JvbGU7CmFsdGVyIGRlZmF1bHQgcHJpdmlsZWdlcyBpbiBzY2hlbWEgcHVibGljIGdyYW50IGFsbCBvbiBmdW5jdGlvbnMgdG8gYW5vbiwgYXV0aGVudGljYXRlZCwgc2VydmljZV9yb2xlOwphbHRlciBkZWZhdWx0IHByaXZpbGVnZXMgaW4gc2NoZW1hIHB1YmxpYyBncmFudCBhbGwgb24gc2VxdWVuY2VzIHRvIGFub24sIGF1dGhlbnRpY2F0ZWQsIHNlcnZpY2Vfcm9sZTsKCi0tIEFsbG93IEV4dGVuc2lvbnMgdG8gYmUgdXNlZCBpbiB0aGUgQVBJCmdyYW50IHVzYWdlICAgICAgICAgICAgICAgICAgICAgb24gc2NoZW1hIGV4dGVuc2lvbnMgdG8gYW5vbiwgYXV0aGVudGljYXRlZCwgc2VydmljZV9yb2xlOwoKLS0gU2V0IHVwIG5hbWVzcGFjaW5nCkFMVEVSIFVTRVIgIiR7REJfVVNFUn0iIFNFVCBzZWFyY2hfcGF0aCA9ICJwdWJsaWMiOwoKCmFsdGVyIGRlZmF1bHQgcHJpdmlsZWdlcyBmb3IgdXNlciAiJHtEQl9VU0VSfSIgaW4gc2NoZW1hIHB1YmxpYyBncmFudCBhbGwKICAgIG9uIHNlcXVlbmNlcyB0byBhbm9uLCBhdXRoZW50aWNhdGVkLCBzZXJ2aWNlX3JvbGU7CmFsdGVyIGRlZmF1bHQgcHJpdmlsZWdlcyBmb3IgdXNlciAiJHtEQl9VU0VSfSIgaW4gc2NoZW1hIHB1YmxpYyBncmFudCBhbGwKICAgIG9uIHRhYmxlcyB0byBhbm9uLCBhdXRoZW50aWNhdGVkLCBzZXJ2aWNlX3JvbGU7CmFsdGVyIGRlZmF1bHQgcHJpdmlsZWdlcyBmb3IgdXNlciAiJHtEQl9VU0VSfSIgaW4gc2NoZW1hIHB1YmxpYyBncmFudCBhbGwKICAgIG9uIGZ1bmN0aW9ucyB0byBhbm9uLCBhdXRoZW50aWNhdGVkLCBzZXJ2aWNlX3JvbGU7CgotLSBTZXQgc2hvcnQgc3RhdGVtZW50L3F1ZXJ5IHRpbWVvdXRzIGZvciBBUEkgcm9sZXMKYWx0ZXIgcm9sZSBhbm9uIHNldCBzdGF0ZW1lbnRfdGltZW91dCA9ICczcyc7CmFsdGVyIHJvbGUgYXV0aGVudGljYXRlZCBzZXQgc3RhdGVtZW50X3RpbWVvdXQgPSAnOHMnOw==",
+                                  "encoding": "utf-8"
+                                },
+                                "/db/init/auth-schema.sql": {
+                                  "data": "Q1JFQVRFIFNDSEVNQSBJRiBOT1QgRVhJU1RTIGF1dGggQVVUSE9SSVpBVElPTiAiJHtEQl9VU0VSfSI7CgotLSBhdXRoLnVzZXJzIGRlZmluaXRpb24KCkNSRUFURSBUQUJMRSBhdXRoLnVzZXJzICgKaW5zdGFuY2VfaWQgdXVpZCBOVUxMLAppZCB1dWlkIE5PVCBOVUxMIFVOSVFVRSwKYXVkIHZhcmNoYXIoMjU1KSBOVUxMLAoicm9sZSIgdmFyY2hhcigyNTUpIE5VTEwsCmVtYWlsIHZhcmNoYXIoMjU1KSBOVUxMIFVOSVFVRSwKZW5jcnlwdGVkX3Bhc3N3b3JkIHZhcmNoYXIoMjU1KSBOVUxMLApjb25maXJtZWRfYXQgdGltZXN0YW1wdHogTlVMTCwKaW52aXRlZF9hdCB0aW1lc3RhbXB0eiBOVUxMLApjb25maXJtYXRpb25fdG9rZW4gdmFyY2hhcigyNTUpIE5VTEwsCmNvbmZpcm1hdGlvbl9zZW50X2F0IHRpbWVzdGFtcHR6IE5VTEwsCnJlY292ZXJ5X3Rva2VuIHZhcmNoYXIoMjU1KSBOVUxMLApyZWNvdmVyeV9zZW50X2F0IHRpbWVzdGFtcHR6IE5VTEwsCmVtYWlsX2NoYW5nZV90b2tlbiB2YXJjaGFyKDI1NSkgTlVMTCwKZW1haWxfY2hhbmdlIHZhcmNoYXIoMjU1KSBOVUxMLAplbWFpbF9jaGFuZ2Vfc2VudF9hdCB0aW1lc3RhbXB0eiBOVUxMLApsYXN0X3NpZ25faW5fYXQgdGltZXN0YW1wdHogTlVMTCwKcmF3X2FwcF9tZXRhX2RhdGEganNvbmIgTlVMTCwKcmF3X3VzZXJfbWV0YV9kYXRhIGpzb25iIE5VTEwsCmlzX3N1cGVyX2FkbWluIGJvb2wgTlVMTCwKY3JlYXRlZF9hdCB0aW1lc3RhbXB0eiBOVUxMLAp1cGRhdGVkX2F0IHRpbWVzdGFtcHR6IE5VTEwsCkNPTlNUUkFJTlQgdXNlcnNfcGtleSBQUklNQVJZIEtFWSAoaWQpCik7CkNSRUFURSBJTkRFWCB1c2Vyc19pbnN0YW5jZV9pZF9lbWFpbF9pZHggT04gYXV0aC51c2VycyBVU0lORyBidHJlZSAoaW5zdGFuY2VfaWQsIGVtYWlsKTsKQ1JFQVRFIElOREVYIHVzZXJzX2luc3RhbmNlX2lkX2lkeCBPTiBhdXRoLnVzZXJzIFVTSU5HIGJ0cmVlIChpbnN0YW5jZV9pZCk7CmNvbW1lbnQgb24gdGFibGUgYXV0aC51c2VycyBpcyAnQXV0aDogU3RvcmVzIHVzZXIgbG9naW4gZGF0YSB3aXRoaW4gYSBzZWN1cmUgc2NoZW1hLic7CgotLSBhdXRoLnJlZnJlc2hfdG9rZW5zIGRlZmluaXRpb24KCkNSRUFURSBUQUJMRSBhdXRoLnJlZnJlc2hfdG9rZW5zICgKaW5zdGFuY2VfaWQgdXVpZCBOVUxMLAppZCBiaWdzZXJpYWwgTk9UIE5VTEwsCiJ0b2tlbiIgdmFyY2hhcigyNTUpIE5VTEwsCnVzZXJfaWQgdmFyY2hhcigyNTUpIE5VTEwsCnJldm9rZWQgYm9vbCBOVUxMLApjcmVhdGVkX2F0IHRpbWVzdGFtcHR6IE5VTEwsCnVwZGF0ZWRfYXQgdGltZXN0YW1wdHogTlVMTCwKQ09OU1RSQUlOVCByZWZyZXNoX3Rva2Vuc19wa2V5IFBSSU1BUlkgS0VZIChpZCkKKTsKQ1JFQVRFIElOREVYIHJlZnJlc2hfdG9rZW5zX2luc3RhbmNlX2lkX2lkeCBPTiBhdXRoLnJlZnJlc2hfdG9rZW5zIFVTSU5HIGJ0cmVlIChpbnN0YW5jZV9pZCk7CkNSRUFURSBJTkRFWCByZWZyZXNoX3Rva2Vuc19pbnN0YW5jZV9pZF91c2VyX2lkX2lkeCBPTiBhdXRoLnJlZnJlc2hfdG9rZW5zIFVTSU5HIGJ0cmVlIChpbnN0YW5jZV9pZCwgdXNlcl9pZCk7CkNSRUFURSBJTkRFWCByZWZyZXNoX3Rva2Vuc190b2tlbl9pZHggT04gYXV0aC5yZWZyZXNoX3Rva2VucyBVU0lORyBidHJlZSAodG9rZW4pOwpjb21tZW50IG9uIHRhYmxlIGF1dGgucmVmcmVzaF90b2tlbnMgaXMgJ0F1dGg6IFN0b3JlIG9mIHRva2VucyB1c2VkIHRvIHJlZnJlc2ggSldUIHRva2VucyBvbmNlIHRoZXkgZXhwaXJlLic7CgotLSBhdXRoLmluc3RhbmNlcyBkZWZpbml0aW9uCgpDUkVBVEUgVEFCTEUgYXV0aC5pbnN0YW5jZXMgKAppZCB1dWlkIE5PVCBOVUxMLAp1dWlkIHV1aWQgTlVMTCwKcmF3X2Jhc2VfY29uZmlnIHRleHQgTlVMTCwKY3JlYXRlZF9hdCB0aW1lc3RhbXB0eiBOVUxMLAp1cGRhdGVkX2F0IHRpbWVzdGFtcHR6IE5VTEwsCkNPTlNUUkFJTlQgaW5zdGFuY2VzX3BrZXkgUFJJTUFSWSBLRVkgKGlkKQopOwpjb21tZW50IG9uIHRhYmxlIGF1dGguaW5zdGFuY2VzIGlzICdBdXRoOiBNYW5hZ2VzIHVzZXJzIGFjcm9zcyBtdWx0aXBsZSBzaXRlcy4nOwoKLS0gYXV0aC5hdWRpdF9sb2dfZW50cmllcyBkZWZpbml0aW9uCgpDUkVBVEUgVEFCTEUgYXV0aC5hdWRpdF9sb2dfZW50cmllcyAoCmluc3RhbmNlX2lkIHV1aWQgTlVMTCwKaWQgdXVpZCBOT1QgTlVMTCwKcGF5bG9hZCBqc29uIE5VTEwsCmNyZWF0ZWRfYXQgdGltZXN0YW1wdHogTlVMTCwKQ09OU1RSQUlOVCBhdWRpdF9sb2dfZW50cmllc19wa2V5IFBSSU1BUlkgS0VZIChpZCkKKTsKQ1JFQVRFIElOREVYIGF1ZGl0X2xvZ3NfaW5zdGFuY2VfaWRfaWR4IE9OIGF1dGguYXVkaXRfbG9nX2VudHJpZXMgVVNJTkcgYnRyZWUgKGluc3RhbmNlX2lkKTsKY29tbWVudCBvbiB0YWJsZSBhdXRoLmF1ZGl0X2xvZ19lbnRyaWVzIGlzICdBdXRoOiBBdWRpdCB0cmFpbCBmb3IgdXNlciBhY3Rpb25zLic7CgotLSBhdXRoLnNjaGVtYV9taWdyYXRpb25zIGRlZmluaXRpb24KCkNSRUFURSBUQUJMRSBhdXRoLnNjaGVtYV9taWdyYXRpb25zICgKInZlcnNpb24iIHZhcmNoYXIoMjU1KSBOT1QgTlVMTCwKQ09OU1RSQUlOVCBzY2hlbWFfbWlncmF0aW9uc19wa2V5IFBSSU1BUlkgS0VZICgidmVyc2lvbiIpCik7CmNvbW1lbnQgb24gdGFibGUgYXV0aC5zY2hlbWFfbWlncmF0aW9ucyBpcyAnQXV0aDogTWFuYWdlcyB1cGRhdGVzIHRvIHRoZSBhdXRoIHN5c3RlbS4nOwoKSU5TRVJUIElOVE8gYXV0aC5zY2hlbWFfbWlncmF0aW9ucyAodmVyc2lvbikKVkFMVUVTICAoJzIwMTcxMDI2MjExNzM4JyksCiAgICAgICAgKCcyMDE3MTAyNjIxMTgwOCcpLAogICAgICAgICgnMjAxNzEwMjYyMTE4MzQnKSwKICAgICAgICAoJzIwMTgwMTAzMjEyNzQzJyksCiAgICAgICAgKCcyMDE4MDEwODE4MzMwNycpLAogICAgICAgICgnMjAxODAxMTkyMTQ2NTEnKSwKICAgICAgICAoJzIwMTgwMTI1MTk0NjUzJyk7CgpjcmVhdGUgb3IgcmVwbGFjZSBmdW5jdGlvbiBhdXRoLnVpZCgpIApyZXR1cm5zIHV1aWQgCmxhbmd1YWdlIHNxbCBzdGFibGUKYXMgJCQKc2VsZWN0IAogICAgY29hbGVzY2UoCiAgICBjdXJyZW50X3NldHRpbmcoJ3JlcXVlc3Quand0LmNsYWltLnN1YicsIHRydWUpLAogICAgKGN1cnJlbnRfc2V0dGluZygncmVxdWVzdC5qd3QuY2xhaW1zJywgdHJ1ZSk6Ompzb25iIC0+PiAnc3ViJykKKTo6dXVpZAokJDsKCmNyZWF0ZSBvciByZXBsYWNlIGZ1bmN0aW9uIGF1dGgucm9sZSgpIApyZXR1cm5zIHRleHQgCmxhbmd1YWdlIHNxbCBzdGFibGUKYXMgJCQKc2VsZWN0IAogICAgY29hbGVzY2UoCiAgICBjdXJyZW50X3NldHRpbmcoJ3JlcXVlc3Quand0LmNsYWltLnJvbGUnLCB0cnVlKSwKICAgIChjdXJyZW50X3NldHRpbmcoJ3JlcXVlc3Quand0LmNsYWltcycsIHRydWUpOjpqc29uYiAtPj4gJ3JvbGUnKQopOjp0ZXh0CiQkOwoKY3JlYXRlIG9yIHJlcGxhY2UgZnVuY3Rpb24gYXV0aC5lbWFpbCgpIApyZXR1cm5zIHRleHQgCmxhbmd1YWdlIHNxbCBzdGFibGUKYXMgJCQKc2VsZWN0IAogICAgY29hbGVzY2UoCiAgICBjdXJyZW50X3NldHRpbmcoJ3JlcXVlc3Quand0LmNsYWltLmVtYWlsJywgdHJ1ZSksCiAgICAoY3VycmVudF9zZXR0aW5nKCdyZXF1ZXN0Lmp3dC5jbGFpbXMnLCB0cnVlKTo6anNvbmIgLT4+ICdlbWFpbCcpCik6OnRleHQKJCQ7CgotLSB1c2FnZSBvbiBhdXRoIGZ1bmN0aW9ucyB0byBBUEkgcm9sZXMKR1JBTlQgVVNBR0UgT04gU0NIRU1BIGF1dGggVE8gYW5vbiwgYXV0aGVudGljYXRlZCwgc2VydmljZV9yb2xlOwoKR1JBTlQgQUxMIFBSSVZJTEVHRVMgT04gU0NIRU1BIGF1dGggVE8gIiR7REJfVVNFUn0iOwpHUkFOVCBBTEwgUFJJVklMRUdFUyBPTiBBTEwgVEFCTEVTIElOIFNDSEVNQSBhdXRoIFRPICIke0RCX1VTRVJ9IjsKR1JBTlQgQUxMIFBSSVZJTEVHRVMgT04gQUxMIFNFUVVFTkNFUyBJTiBTQ0hFTUEgYXV0aCBUTyAiJHtEQl9VU0VSfSI7CkFMVEVSIFVTRVIgIiR7REJfVVNFUn0iIFNFVCBzZWFyY2hfcGF0aCA9ICJhdXRoIjsKQUxURVIgdGFibGUgImF1dGgiLnVzZXJzIE9XTkVSIFRPICIke0RCX1VTRVJ9IjsKQUxURVIgdGFibGUgImF1dGgiLnJlZnJlc2hfdG9rZW5zIE9XTkVSIFRPICIke0RCX1VTRVJ9IjsKQUxURVIgdGFibGUgImF1dGgiLmF1ZGl0X2xvZ19lbnRyaWVzIE9XTkVSIFRPICIke0RCX1VTRVJ9IjsKQUxURVIgdGFibGUgImF1dGgiLmluc3RhbmNlcyBPV05FUiBUTyAiJHtEQl9VU0VSfSI7CkFMVEVSIHRhYmxlICJhdXRoIi5zY2hlbWFfbWlncmF0aW9ucyBPV05FUiBUTyAiJHtEQl9VU0VSfSI7CgpBTFRFUiBGVU5DVElPTiAiYXV0aCIuInVpZCIgT1dORVIgVE8gIiR7REJfVVNFUn0iOwpBTFRFUiBGVU5DVElPTiAiYXV0aCIuInJvbGUiIE9XTkVSIFRPICIke0RCX1VTRVJ9IjsKQUxURVIgRlVOQ1RJT04gImF1dGgiLiJlbWFpbCIgT1dORVIgVE8gIiR7REJfVVNFUn0iOwpHUkFOVCBFWEVDVVRFIE9OIEZVTkNUSU9OICJhdXRoIi4idWlkIigpIFRPIFBVQkxJQzsKR1JBTlQgRVhFQ1VURSBPTiBGVU5DVElPTiAiYXV0aCIuInJvbGUiKCkgVE8gUFVCTElDOwpHUkFOVCBFWEVDVVRFIE9OIEZVTkNUSU9OICJhdXRoIi4iZW1haWwiKCkgVE8gUFVCTElDOw==",
+                                  "encoding": "utf-8"
+                                },
+                                "/db/init/storage-schema.sql": {
+                                  "data": "Q1JFQVRFIFNDSEVNQSBJRiBOT1QgRVhJU1RTIHN0b3JhZ2UgQVVUSE9SSVpBVElPTiAiJHtEQl9VU0VSfSI7CgpncmFudCB1c2FnZSBvbiBzY2hlbWEgc3RvcmFnZSB0byBhbm9uLCBhdXRoZW50aWNhdGVkLCBzZXJ2aWNlX3JvbGU7CmFsdGVyIGRlZmF1bHQgcHJpdmlsZWdlcyBpbiBzY2hlbWEgc3RvcmFnZSBncmFudCBhbGwgb24gdGFibGVzIHRvIGFub24sIGF1dGhlbnRpY2F0ZWQsIHNlcnZpY2Vfcm9sZTsKYWx0ZXIgZGVmYXVsdCBwcml2aWxlZ2VzIGluIHNjaGVtYSBzdG9yYWdlIGdyYW50IGFsbCBvbiBmdW5jdGlvbnMgdG8gYW5vbiwgYXV0aGVudGljYXRlZCwgc2VydmljZV9yb2xlOwphbHRlciBkZWZhdWx0IHByaXZpbGVnZXMgaW4gc2NoZW1hIHN0b3JhZ2UgZ3JhbnQgYWxsIG9uIHNlcXVlbmNlcyB0byBhbm9uLCBhdXRoZW50aWNhdGVkLCBzZXJ2aWNlX3JvbGU7CgpDUkVBVEUgVEFCTEUgInN0b3JhZ2UiLiJidWNrZXRzIiAoCiAgICAiaWQiIHRleHQgbm90IE5VTEwsCiAgICAibmFtZSIgdGV4dCBOT1QgTlVMTCwKICAgICJvd25lciIgdXVpZCwKICAgICJjcmVhdGVkX2F0IiB0aW1lc3RhbXB0eiBERUZBVUxUIG5vdygpLAogICAgInVwZGF0ZWRfYXQiIHRpbWVzdGFtcHR6IERFRkFVTFQgbm93KCksCiAgICBDT05TVFJBSU5UICJidWNrZXRzX293bmVyX2ZrZXkiIEZPUkVJR04gS0VZICgib3duZXIiKSBSRUZFUkVOQ0VTICJhdXRoIi4idXNlcnMiKCJpZCIpLAogICAgUFJJTUFSWSBLRVkgKCJpZCIpCik7CkNSRUFURSBVTklRVUUgSU5ERVggImJuYW1lIiBPTiAic3RvcmFnZSIuImJ1Y2tldHMiIFVTSU5HIEJUUkVFICgibmFtZSIpOwoKQ1JFQVRFIFRBQkxFICJzdG9yYWdlIi4ib2JqZWN0cyIgKAogICAgImlkIiB1dWlkIE5PVCBOVUxMIERFRkFVTFQgZXh0ZW5zaW9ucy51dWlkX2dlbmVyYXRlX3Y0KCksCiAgICAiYnVja2V0X2lkIiB0ZXh0LAogICAgIm5hbWUiIHRleHQsCiAgICAib3duZXIiIHV1aWQsCiAgICAiY3JlYXRlZF9hdCIgdGltZXN0YW1wdHogREVGQVVMVCBub3coKSwKICAgICJ1cGRhdGVkX2F0IiB0aW1lc3RhbXB0eiBERUZBVUxUIG5vdygpLAogICAgImxhc3RfYWNjZXNzZWRfYXQiIHRpbWVzdGFtcHR6IERFRkFVTFQgbm93KCksCiAgICAibWV0YWRhdGEiIGpzb25iLAogICAgQ09OU1RSQUlOVCAib2JqZWN0c19idWNrZXRJZF9ma2V5IiBGT1JFSUdOIEtFWSAoImJ1Y2tldF9pZCIpIFJFRkVSRU5DRVMgInN0b3JhZ2UiLiJidWNrZXRzIigiaWQiKSwKICAgIENPTlNUUkFJTlQgIm9iamVjdHNfb3duZXJfZmtleSIgRk9SRUlHTiBLRVkgKCJvd25lciIpIFJFRkVSRU5DRVMgImF1dGgiLiJ1c2VycyIoImlkIiksCiAgICBQUklNQVJZIEtFWSAoImlkIikKKTsKQ1JFQVRFIFVOSVFVRSBJTkRFWCAiYnVja2V0aWRfb2JqbmFtZSIgT04gInN0b3JhZ2UiLiJvYmplY3RzIiBVU0lORyBCVFJFRSAoImJ1Y2tldF9pZCIsIm5hbWUiKTsKQ1JFQVRFIElOREVYIG5hbWVfcHJlZml4X3NlYXJjaCBPTiBzdG9yYWdlLm9iamVjdHMobmFtZSB0ZXh0X3BhdHRlcm5fb3BzKTsKCkFMVEVSIFRBQkxFIHN0b3JhZ2Uub2JqZWN0cyBFTkFCTEUgUk9XIExFVkVMIFNFQ1VSSVRZOwoKQ1JFQVRFIEZVTkNUSU9OIHN0b3JhZ2UuZm9sZGVybmFtZShuYW1lIHRleHQpClJFVFVSTlMgdGV4dFtdCkxBTkdVQUdFIHBscGdzcWwKQVMgJGZ1bmN0aW9uJApERUNMQVJFCl9wYXJ0cyB0ZXh0W107CkJFR0lOCnNlbGVjdCBzdHJpbmdfdG9fYXJyYXkobmFtZSwgJy8nKSBpbnRvIF9wYXJ0czsKcmV0dXJuIF9wYXJ0c1sxOmFycmF5X2xlbmd0aChfcGFydHMsMSktMV07CkVORAokZnVuY3Rpb24kOwoKQ1JFQVRFIEZVTkNUSU9OIHN0b3JhZ2UuZmlsZW5hbWUobmFtZSB0ZXh0KQpSRVRVUk5TIHRleHQKTEFOR1VBR0UgcGxwZ3NxbApBUyAkZnVuY3Rpb24kCkRFQ0xBUkUKX3BhcnRzIHRleHRbXTsKQkVHSU4Kc2VsZWN0IHN0cmluZ190b19hcnJheShuYW1lLCAnLycpIGludG8gX3BhcnRzOwpyZXR1cm4gX3BhcnRzW2FycmF5X2xlbmd0aChfcGFydHMsMSldOwpFTkQKJGZ1bmN0aW9uJDsKCkNSRUFURSBGVU5DVElPTiBzdG9yYWdlLmV4dGVuc2lvbihuYW1lIHRleHQpClJFVFVSTlMgdGV4dApMQU5HVUFHRSBwbHBnc3FsCkFTICRmdW5jdGlvbiQKREVDTEFSRQpfcGFydHMgdGV4dFtdOwpfZmlsZW5hbWUgdGV4dDsKQkVHSU4Kc2VsZWN0IHN0cmluZ190b19hcnJheShuYW1lLCAnLycpIGludG8gX3BhcnRzOwpzZWxlY3QgX3BhcnRzW2FycmF5X2xlbmd0aChfcGFydHMsMSldIGludG8gX2ZpbGVuYW1lOwotLSBAdG9kbyByZXR1cm4gdGhlIGxhc3QgcGFydCBpbnN0ZWFkIG9mIDIKcmV0dXJuIHNwbGl0X3BhcnQoX2ZpbGVuYW1lLCAnLicsIDIpOwpFTkQKJGZ1bmN0aW9uJDsKCkNSRUFURSBGVU5DVElPTiBzdG9yYWdlLnNlYXJjaChwcmVmaXggdGV4dCwgYnVja2V0bmFtZSB0ZXh0LCBsaW1pdHMgaW50IERFRkFVTFQgMTAwLCBsZXZlbHMgaW50IERFRkFVTFQgMSwgb2Zmc2V0cyBpbnQgREVGQVVMVCAwKQpSRVRVUk5TIFRBQkxFICgKICAgIG5hbWUgdGV4dCwKICAgIGlkIHV1aWQsCiAgICB1cGRhdGVkX2F0IFRJTUVTVEFNUFRaLAogICAgY3JlYXRlZF9hdCBUSU1FU1RBTVBUWiwKICAgIGxhc3RfYWNjZXNzZWRfYXQgVElNRVNUQU1QVFosCiAgICBtZXRhZGF0YSBqc29uYgopCkxBTkdVQUdFIHBscGdzcWwKQVMgJGZ1bmN0aW9uJApERUNMQVJFCl9idWNrZXRJZCB0ZXh0OwpCRUdJTgogICAgLS0gd2lsbCBiZSByZXBsYWNlZCBieSBtaWdyYXRpb25zIHdoZW4gc2VydmVyIHN0YXJ0cwogICAgLS0gc2F2aW5nIHNwYWNlIGZvciBjbG91ZC1pbml0CkVORAokZnVuY3Rpb24kOwoKLS0gY3JlYXRlIG1pZ3JhdGlvbnMgdGFibGUKLS0gaHR0cHM6Ly9naXRodWIuY29tL1Rob21XcmlnaHQvcG9zdGdyZXMtbWlncmF0aW9ucy9ibG9iL21hc3Rlci9zcmMvbWlncmF0aW9ucy8wX2NyZWF0ZS1taWdyYXRpb25zLXRhYmxlLnNxbAotLSB3ZSBhZGQgdGhpcyB0YWJsZSBoZXJlIGFuZCBub3QgbGV0IGl0IGJlIGF1dG8tY3JlYXRlZCBzbyB0aGF0IHRoZSBwZXJtaXNzaW9ucyBhcmUgcHJvcGVybHkgYXBwbGllZCB0byBpdApDUkVBVEUgVEFCTEUgSUYgTk9UIEVYSVNUUyBzdG9yYWdlLm1pZ3JhdGlvbnMgKAogICAgaWQgaW50ZWdlciBQUklNQVJZIEtFWSwKICAgIG5hbWUgdmFyY2hhcigxMDApIFVOSVFVRSBOT1QgTlVMTCwKICAgIGhhc2ggdmFyY2hhcig0MCkgTk9UIE5VTEwsIC0tIHNoYTEgaGV4IGVuY29kZWQgaGFzaCBvZiB0aGUgZmlsZSBuYW1lIGFuZCBjb250ZW50cywgdG8gZW5zdXJlIGl0IGhhc24ndCBiZWVuIGFsdGVyZWQgc2luY2UgYXBwbHlpbmcgdGhlIG1pZ3JhdGlvbgogICAgZXhlY3V0ZWRfYXQgdGltZXN0YW1wIERFRkFVTFQgY3VycmVudF90aW1lc3RhbXAKKTsKCkdSQU5UIEFMTCBQUklWSUxFR0VTIE9OIFNDSEVNQSBzdG9yYWdlIFRPICIke0RCX1VTRVJ9IjsKR1JBTlQgQUxMIFBSSVZJTEVHRVMgT04gQUxMIFRBQkxFUyBJTiBTQ0hFTUEgc3RvcmFnZSBUTyAiJHtEQl9VU0VSfSI7CkdSQU5UIEFMTCBQUklWSUxFR0VTIE9OIEFMTCBTRVFVRU5DRVMgSU4gU0NIRU1BIHN0b3JhZ2UgVE8gIiR7REJfVVNFUn0iOwpBTFRFUiB0YWJsZSAic3RvcmFnZSIub2JqZWN0cyBvd25lciB0byAiJHtEQl9VU0VSfSI7CkFMVEVSIHRhYmxlICJzdG9yYWdlIi5idWNrZXRzIG93bmVyIHRvICIke0RCX1VTRVJ9IjsKQUxURVIgdGFibGUgInN0b3JhZ2UiLm1pZ3JhdGlvbnMgT1dORVIgVE8gIiR7REJfVVNFUn0iOwpBTFRFUiBmdW5jdGlvbiAic3RvcmFnZSIuZm9sZGVybmFtZSh0ZXh0KSBvd25lciB0byAiJHtEQl9VU0VSfSI7CkFMVEVSIGZ1bmN0aW9uICJzdG9yYWdlIi5maWxlbmFtZSh0ZXh0KSBvd25lciB0byAiJHtEQl9VU0VSfSI7CkFMVEVSIGZ1bmN0aW9uICJzdG9yYWdlIi5leHRlbnNpb24odGV4dCkgb3duZXIgdG8gIiR7REJfVVNFUn0iOwpBTFRFUiBmdW5jdGlvbiAic3RvcmFnZSIuc2VhcmNoKHRleHQsdGV4dCxpbnQsaW50LGludCkgb3duZXIgdG8gIiR7REJfVVNFUn0iOw==",
+                                  "encoding": "utf-8"
+                                },
+                                "/db/init/post-setup.sql": {
+                                  "data": "Q1JFQVRFIE9SIFJFUExBQ0UgRlVOQ1RJT04gZXh0ZW5zaW9ucy5ub3RpZnlfYXBpX3Jlc3RhcnQoKQpSRVRVUk5TIGV2ZW50X3RyaWdnZXIKTEFOR1VBR0UgcGxwZ3NxbApBUyAkJApCRUdJTgogICAgTk9USUZZIGRkbF9jb21tYW5kX2VuZDsKRU5EOwokJDsKQ1JFQVRFIEVWRU5UIFRSSUdHRVIgYXBpX3Jlc3RhcnQgT04gZGRsX2NvbW1hbmRfZW5kCkVYRUNVVEUgUFJPQ0VEVVJFIGV4dGVuc2lvbnMubm90aWZ5X2FwaV9yZXN0YXJ0KCk7CkNPTU1FTlQgT04gRlVOQ1RJT04gZXh0ZW5zaW9ucy5ub3RpZnlfYXBpX3Jlc3RhcnQgSVMgJ1NlbmRzIGEgbm90aWZpY2F0aW9uIHRvIHRoZSBBUEkgdG8gcmVzdGFydC4gSWYgeW91ciBkYXRhYmFzZSBzY2hlbWEgaGFzIGNoYW5nZWQsIHRoaXMgaXMgcmVxdWlyZWQgc28gdGhhdCBTdXBhYmFzZSBjYW4gcmVidWlsZCB0aGUgcmVsYXRpb25zaGlwcy4nOwoKLS0gVHJpZ2dlciBmb3IgcGdfY3JvbgpDUkVBVEUgT1IgUkVQTEFDRSBGVU5DVElPTiBleHRlbnNpb25zLmdyYW50X3BnX2Nyb25fYWNjZXNzKCkKUkVUVVJOUyBldmVudF90cmlnZ2VyCkxBTkdVQUdFIHBscGdzcWwKQVMgJCQKREVDTEFSRQpzY2hlbWFfaXNfY3JvbiBib29sOwpCRUdJTgpzY2hlbWFfaXNfY3JvbiA9ICgKICAgIFNFTEVDVCBuLm5zcG5hbWUgPSAnY3JvbicKICAgIEZST00gcGdfZXZlbnRfdHJpZ2dlcl9kZGxfY29tbWFuZHMoKSBBUyBldgogICAgTEVGVCBKT0lOIHBnX2NhdGFsb2cucGdfbmFtZXNwYWNlIEFTIG4KICAgIE9OIGV2Lm9iamlkID0gbi5vaWQKKTsKCkVORDsKJCQ7CkNSRUFURSBFVkVOVCBUUklHR0VSIGlzc3VlX3BnX2Nyb25fYWNjZXNzIE9OIGRkbF9jb21tYW5kX2VuZCBXSEVOIFRBRyBpbiAoJ0NSRUFURSBTQ0hFTUEnKQpFWEVDVVRFIFBST0NFRFVSRSBleHRlbnNpb25zLmdyYW50X3BnX2Nyb25fYWNjZXNzKCk7CkNPTU1FTlQgT04gRlVOQ1RJT04gZXh0ZW5zaW9ucy5ncmFudF9wZ19jcm9uX2FjY2VzcyBJUyAnR3JhbnRzIGFjY2VzcyB0byBwZ19jcm9uJzsKCi0tIFN1cGFiYXNlIGRhc2hib2FyZCB1c2VyCkdSQU5UIEFMTCBPTiBTQ0hFTUEgYXV0aCBUTyAiJHtEQl9VU0VSfSI7CkdSQU5UIEFMTCBPTiBTQ0hFTUEgZXh0ZW5zaW9ucyBUTyAiJHtEQl9VU0VSfSI7CkdSQU5UIEFMTCBPTiBTQ0hFTUEgc3RvcmFnZSBUTyAiJHtEQl9VU0VSfSI7CkdSQU5UIEFMTCBPTiBBTEwgVEFCTEVTIElOIFNDSEVNQSBhdXRoIFRPICIke0RCX1VTRVJ9IjsKR1JBTlQgQUxMIE9OIEFMTCBUQUJMRVMgSU4gU0NIRU1BIGV4dGVuc2lvbnMgVE8gIiR7REJfVVNFUn0iOwpHUkFOVCBBTEwgT04gQUxMIFNFUVVFTkNFUyBJTiBTQ0hFTUEgYXV0aCBUTyAiJHtEQl9VU0VSfSI7CkdSQU5UIEFMTCBPTiBBTEwgU0VRVUVOQ0VTIElOIFNDSEVNQSBzdG9yYWdlIFRPICIke0RCX1VTRVJ9IjsKR1JBTlQgQUxMIE9OIEFMTCBTRVFVRU5DRVMgSU4gU0NIRU1BIGV4dGVuc2lvbnMgVE8gIiR7REJfVVNFUn0iOwpHUkFOVCBBTEwgT04gQUxMIFJPVVRJTkVTIElOIFNDSEVNQSBhdXRoIFRPICIke0RCX1VTRVJ9IjsKR1JBTlQgQUxMIE9OIEFMTCBST1VUSU5FUyBJTiBTQ0hFTUEgc3RvcmFnZSBUTyAiJHtEQl9VU0VSfSI7CkdSQU5UIEFMTCBPTiBBTEwgUk9VVElORVMgSU4gU0NIRU1BIGV4dGVuc2lvbnMgVE8gIiR7REJfVVNFUn0iOw==",
+                                  "encoding": "utf-8"
+                                },
+                                "/db/init.sh": {
+                                  "data": "IyEvYmluL3NoCgplY2hvICJJbml0aWFsaXNpbmcgU3VwYWJhc2UgZGF0YWJhc2UgY29uZmlndXJhdGlvbiIKCnBzcWwgJHtEQl9BRE1JTl9VUkx9IC1hIC1mIC9kYi9pbml0L2luaXRpYWwtc2NoZW1hLnNxbApwc3FsICR7REJfQURNSU5fVVJMfSAtYSAtZiAvZGIvaW5pdC9hdXRoLXNjaGVtYS5zcWwKcHNxbCAke0RCX0FETUlOX1VSTH0gLWEgLWYgL2RiL2luaXQvc3RvcmFnZS1zY2hlbWEuc3FsCnBzcWwgJHtEQl9BRE1JTl9VUkx9IC1hIC1mIC9kYi9pbml0L3Bvc3Qtc2V0dXAuc3FsCgplY2hvICJEYXRhYmFzZSBjb25maWd1cmF0aW9uIGNvbXBsZXRlZCIKZXhpdCAw",
+                                  "encoding": "utf-8"
+                                }
+                              },
+                              "billing": {
+                                "deploymentPlan": "nf-compute-200"
+                              },
+                              "deployment": {
+                                "docker": {
+                                  "configType": "customEntrypointCustomCommand",
+                                  "customEntrypoint": "sh -c",
+                                  "customCommand": "\"/db/init.sh\""
+                                },
+                                "external": {
+                                  "imagePath": "library/postgres:15.5"
+                                }
+                              },
+                              "name": "database-init",
+                              "disabledCI": false,
+                              "buildConfiguration": {
+                                "pathIgnoreRules": [],
+                                "isAllowList": false,
+                                "ciIgnoreFlagsEnabled": false
+                              },
+                              "buildArguments": {}
+                            },
+                            "ref": "database-init"
+                          },
+                          {
+                            "kind": "Condition",
+                            "spec": {
+                              "kind": "Addon",
+                              "spec": {
+                                "type": "running",
+                                "data": {
+                                  "addonId": "${refs.postgres.id}"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "kind": "JobRun",
+                            "spec": {
+                              "jobId": "${refs.database-init.id}",
+                              "deployment": {
+                                "docker": {
+                                  "configType": "customEntrypointCustomCommand",
+                                  "customEntrypoint": "sh -c",
+                                  "customCommand": "\"/db/init.sh\""
+                                }
+                              }
+                            },
+                            "condition": "success"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "Workflow",
+                      "spec": {
+                        "type": "sequential",
+                        "steps": [
+                          {
+                            "kind": "ManualJob",
+                            "ref": "create-minio-bucket",
+                            "spec": {
+                              "name": "create-minio-bucket",
+                              "billing": {
+                                "deploymentPlan": "nf-compute-200"
+                              },
+                              "backoffLimit": 0,
+                              "runOnSourceChange": "never",
+                              "activeDeadlineSeconds": 600,
+                              "deployment": {
+                                "docker": {
+                                  "configType": "customEntrypointCustomCommand",
+                                  "customEntrypoint": "/bin/sh -c",
+                                  "customCommand": "/configure_minio.sh"
+                                },
+                                "buildpack": {
+                                  "configType": "default"
+                                },
+                                "storage": {
+                                  "ephemeralStorage": {
+                                    "storageSize": 1024
+                                  }
+                                },
+                                "external": {
+                                  "imagePath": "minio/mc:RELEASE.2023-09-07T22-48-55Z"
+                                }
+                              },
+                              "runtimeFiles": {
+                                "/configure_minio.sh": {
+                                  "data": "L3Vzci9iaW4vbWMgY29uZmlnIGhvc3QgYWRkIHN1cGFiYXNlLW1pbmlvICRHTE9CQUxfUzNfRU5EUE9JTlQgJEFXU19BQ0NFU1NfS0VZX0lEICRBV1NfU0VDUkVUX0FDQ0VTU19LRVk7Ci91c3IvYmluL21jIG1iIHN1cGFiYXNlLW1pbmlvLyRHTE9CQUxfUzNfQlVDS0VUOwpleGl0IDA7",
+                                  "encoding": "utf-8"
+                                }
+                              },
+                              "healthChecks": [],
+                              "disabledCI": false,
+                              "buildConfiguration": {
+                                "pathIgnoreRules": [],
+                                "isAllowList": false,
+                                "ciIgnoreFlagsEnabled": false
+                              },
+                              "runtimeEnvironment": {},
+                              "buildArguments": {}
+                            }
+                          },
+                          {
+                            "kind": "Condition",
+                            "spec": {
+                              "kind": "Addon",
+                              "spec": {
+                                "type": "running",
+                                "data": {
+                                  "addonId": "${refs.minio.id}"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "kind": "JobRun",
+                            "spec": {
+                              "jobId": "${refs.create-minio-bucket.id}",
+                              "deployment": {
+                                "docker": {
+                                  "configType": "customEntrypointCustomCommand",
+                                  "customEntrypoint": "/bin/sh -c",
+                                  "customCommand": "/configure_minio.sh"
+                                }
+                              }
+                            },
+                            "condition": "success"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "external": {
+                            "imagePath": "library/kong:3.5.0"
+                          }
+                        },
+                        "runtimeEnvironment": {
+                          "DASHBOARD_USERNAME": "${args.DASHBOARD_USERNAME}",
+                          "DASHBOARD_PASSWORD": "${args.DASHBOARD_PASSWORD}",
+                          "KONG_DATABASE": "off",
+                          "KONG_DECLARATIVE_CONFIG": "/home/kong/kong.yml",
+                          "KONG_DNS_ORDER": "LAST,A,CNAME",
+                          "KONG_PLUGINS": "request-transformer,cors,key-auth,acl,basic-auth",
+                          "KONG_NGINX_PROXY_PROXY_BUFFER_SIZE": "160k",
+                          "KONG_NGINX_PROXY_PROXY_BUFFERS": "64 160k",
+                          "SUPABASE_SERVICE_KEY": "${SERVICE_KEY}",
+                          "SUPABASE_ANON_KEY": "${ANON_KEY}"
+                        },
+                        "runtimeFiles": {
+                          "/home/kong/kong.yml": {
+                            "data": "X2Zvcm1hdF92ZXJzaW9uOiAnMi4xJwpfdHJhbnNmb3JtOiB0cnVlCgojIyMKIyMjIENvbnN1bWVycyAvIFVzZXJzCiMjIwpjb25zdW1lcnM6CiAgLSB1c2VybmFtZTogREFTSEJPQVJECiAgLSB1c2VybmFtZTogYW5vbgogICAga2V5YXV0aF9jcmVkZW50aWFsczoKICAgICAgLSBrZXk6ICR7U1VQQUJBU0VfQU5PTl9LRVl9CiAgLSB1c2VybmFtZTogc2VydmljZV9yb2xlCiAgICBrZXlhdXRoX2NyZWRlbnRpYWxzOgogICAgICAtIGtleTogJHtTVVBBQkFTRV9TRVJWSUNFX0tFWX0KCiMjIwojIyMgQWNjZXNzIENvbnRyb2wgTGlzdAojIyMKYWNsczoKICAtIGNvbnN1bWVyOiBhbm9uCiAgICBncm91cDogYW5vbgogIC0gY29uc3VtZXI6IHNlcnZpY2Vfcm9sZQogICAgZ3JvdXA6IGFkbWluCgojIyMKIyMjIERhc2hib2FyZCBjcmVkZW50aWFscwojIyMKYmFzaWNhdXRoX2NyZWRlbnRpYWxzOgotIGNvbnN1bWVyOiBEQVNIQk9BUkQKICB1c2VybmFtZTogJHtEQVNIQk9BUkRfVVNFUk5BTUV9CiAgcGFzc3dvcmQ6ICR7REFTSEJPQVJEX1BBU1NXT1JEfQoKCiMjIwojIyMgQVBJIFJvdXRlcwojIyMKc2VydmljZXM6CgogICMjIE9wZW4gQXV0aCByb3V0ZXMKICAtIG5hbWU6IGF1dGgtdjEtb3BlbgogICAgdXJsOiBodHRwOi8vYXV0aDo5OTk5L3ZlcmlmeQogICAgcm91dGVzOgogICAgICAtIG5hbWU6IGF1dGgtdjEtb3BlbgogICAgICAgIHN0cmlwX3BhdGg6IHRydWUKICAgICAgICBwYXRoczoKICAgICAgICAgIC0gL2F1dGgvdjEvdmVyaWZ5CiAgICBwbHVnaW5zOgogICAgICAtIG5hbWU6IGNvcnMKICAtIG5hbWU6IGF1dGgtdjEtb3Blbi1jYWxsYmFjawogICAgdXJsOiBodHRwOi8vYXV0aDo5OTk5L2NhbGxiYWNrCiAgICByb3V0ZXM6CiAgICAgIC0gbmFtZTogYXV0aC12MS1vcGVuLWNhbGxiYWNrCiAgICAgICAgc3RyaXBfcGF0aDogdHJ1ZQogICAgICAgIHBhdGhzOgogICAgICAgICAgLSAvYXV0aC92MS9jYWxsYmFjawogICAgcGx1Z2luczoKICAgICAgLSBuYW1lOiBjb3JzCiAgLSBuYW1lOiBhdXRoLXYxLW9wZW4tYXV0aG9yaXplCiAgICB1cmw6IGh0dHA6Ly9hdXRoOjk5OTkvYXV0aG9yaXplCiAgICByb3V0ZXM6CiAgICAgIC0gbmFtZTogYXV0aC12MS1vcGVuLWF1dGhvcml6ZQogICAgICAgIHN0cmlwX3BhdGg6IHRydWUKICAgICAgICBwYXRoczoKICAgICAgICAgIC0gL2F1dGgvdjEvYXV0aG9yaXplCiAgICBwbHVnaW5zOgogICAgICAtIG5hbWU6IGNvcnMKCiAgIyMgU2VjdXJlIEF1dGggcm91dGVzCiAgLSBuYW1lOiBhdXRoLXYxCiAgICBfY29tbWVudDogJ0dvVHJ1ZTogL2F1dGgvdjEvKiAtPiBodHRwOi8vYXV0aDo5OTk5LyonCiAgICB1cmw6IGh0dHA6Ly9hdXRoOjk5OTkvCiAgICByb3V0ZXM6CiAgICAgIC0gbmFtZTogYXV0aC12MS1hbGwKICAgICAgICBzdHJpcF9wYXRoOiB0cnVlCiAgICAgICAgcGF0aHM6CiAgICAgICAgICAtIC9hdXRoL3YxLwogICAgcGx1Z2luczoKICAgICAgLSBuYW1lOiBjb3JzCiAgICAgIC0gbmFtZToga2V5LWF1dGgKICAgICAgICBjb25maWc6CiAgICAgICAgICBoaWRlX2NyZWRlbnRpYWxzOiBmYWxzZQogICAgICAtIG5hbWU6IGFjbAogICAgICAgIGNvbmZpZzoKICAgICAgICAgIGhpZGVfZ3JvdXBzX2hlYWRlcjogdHJ1ZQogICAgICAgICAgYWxsb3c6CiAgICAgICAgICAgIC0gYWRtaW4KICAgICAgICAgICAgLSBhbm9uCgogICMjIFNlY3VyZSBSRVNUIHJvdXRlcwogIC0gbmFtZTogcmVzdC12MQogICAgX2NvbW1lbnQ6ICdQb3N0Z1JFU1Q6IC9yZXN0L3YxLyogLT4gaHR0cDovL3Jlc3Q6MzAwMC8qJwogICAgdXJsOiBodHRwOi8vcmVzdDozMDAwLwogICAgcm91dGVzOgogICAgICAtIG5hbWU6IHJlc3QtdjEtYWxsCiAgICAgICAgc3RyaXBfcGF0aDogdHJ1ZQogICAgICAgIHBhdGhzOgogICAgICAgICAgLSAvcmVzdC92MS8KICAgIHBsdWdpbnM6CiAgICAgIC0gbmFtZTogY29ycwogICAgICAtIG5hbWU6IGtleS1hdXRoCiAgICAgICAgY29uZmlnOgogICAgICAgICAgaGlkZV9jcmVkZW50aWFsczogdHJ1ZQogICAgICAtIG5hbWU6IGFjbAogICAgICAgIGNvbmZpZzoKICAgICAgICAgIGhpZGVfZ3JvdXBzX2hlYWRlcjogdHJ1ZQogICAgICAgICAgYWxsb3c6CiAgICAgICAgICAgIC0gYWRtaW4KICAgICAgICAgICAgLSBhbm9uCgogICMjIFNlY3VyZSBHcmFwaFFMIHJvdXRlcwogIC0gbmFtZTogZ3JhcGhxbC12MQogICAgX2NvbW1lbnQ6ICdQb3N0Z1JFU1Q6IC9ncmFwaHFsL3YxLyogLT4gaHR0cDovL3Jlc3Q6MzAwMC9ycGMvZ3JhcGhxbCcKICAgIHVybDogaHR0cDovL3Jlc3Q6MzAwMC9ycGMvZ3JhcGhxbAogICAgcm91dGVzOgogICAgICAtIG5hbWU6IGdyYXBocWwtdjEtYWxsCiAgICAgICAgc3RyaXBfcGF0aDogdHJ1ZQogICAgICAgIHBhdGhzOgogICAgICAgICAgLSAvZ3JhcGhxbC92MQogICAgcGx1Z2luczoKICAgICAgLSBuYW1lOiBjb3JzCiAgICAgIC0gbmFtZToga2V5LWF1dGgKICAgICAgICBjb25maWc6CiAgICAgICAgICBoaWRlX2NyZWRlbnRpYWxzOiB0cnVlCiAgICAgIC0gbmFtZTogcmVxdWVzdC10cmFuc2Zvcm1lcgogICAgICAgIGNvbmZpZzoKICAgICAgICAgIGFkZDoKICAgICAgICAgICAgaGVhZGVyczoKICAgICAgICAgICAgICAtIENvbnRlbnQtUHJvZmlsZTpncmFwaHFsX3B1YmxpYwogICAgICAtIG5hbWU6IGFjbAogICAgICAgIGNvbmZpZzoKICAgICAgICAgIGhpZGVfZ3JvdXBzX2hlYWRlcjogdHJ1ZQogICAgICAgICAgYWxsb3c6CiAgICAgICAgICAgIC0gYWRtaW4KICAgICAgICAgICAgLSBhbm9uCgogICMjIFNlY3VyZSBSZWFsdGltZSByb3V0ZXMKICAtIG5hbWU6IHJlYWx0aW1lLXYxCiAgICBfY29tbWVudDogJ1JlYWx0aW1lOiAvcmVhbHRpbWUvdjEvKiAtPiB3czovL3JlYWx0aW1lOjQwMDAvc29ja2V0LyonCiAgICB1cmw6IGh0dHA6Ly9yZWFsdGltZTo0MDAwL3NvY2tldC8KICAgIHJvdXRlczoKICAgICAgLSBuYW1lOiByZWFsdGltZS12MS1hbGwKICAgICAgICBzdHJpcF9wYXRoOiB0cnVlCiAgICAgICAgcGF0aHM6CiAgICAgICAgICAtIC9yZWFsdGltZS92MS8KICAgIHBsdWdpbnM6CiAgICAgIC0gbmFtZTogY29ycwogICAgICAtIG5hbWU6IGtleS1hdXRoCiAgICAgICAgY29uZmlnOgogICAgICAgICAgaGlkZV9jcmVkZW50aWFsczogZmFsc2UKICAgICAgLSBuYW1lOiBhY2wKICAgICAgICBjb25maWc6CiAgICAgICAgICBoaWRlX2dyb3Vwc19oZWFkZXI6IHRydWUKICAgICAgICAgIGFsbG93OgogICAgICAgICAgICAtIGFkbWluCiAgICAgICAgICAgIC0gYW5vbgoKICAjIyBTdG9yYWdlIHJvdXRlczogdGhlIHN0b3JhZ2Ugc2VydmVyIG1hbmFnZXMgaXRzIG93biBhdXRoCiAgLSBuYW1lOiBzdG9yYWdlLXYxCiAgICBfY29tbWVudDogJ1N0b3JhZ2U6IC9zdG9yYWdlL3YxLyogLT4gaHR0cDovL3N0b3JhZ2U6NTAwMC8qJwogICAgdXJsOiBodHRwOi8vc3RvcmFnZTo1MDAwLwogICAgcm91dGVzOgogICAgICAtIG5hbWU6IHN0b3JhZ2UtdjEtYWxsCiAgICAgICAgc3RyaXBfcGF0aDogdHJ1ZQogICAgICAgIHBhdGhzOgogICAgICAgICAgLSAvc3RvcmFnZS92MS8KICAgIHBsdWdpbnM6CiAgICAgIC0gbmFtZTogY29ycwoKICAjIyBFZGdlIEZ1bmN0aW9ucyByb3V0ZXMKICAtIG5hbWU6IGZ1bmN0aW9ucy12MQogICAgX2NvbW1lbnQ6ICdFZGdlIEZ1bmN0aW9uczogL2Z1bmN0aW9ucy92MS8qIC0+IGh0dHA6Ly9mdW5jdGlvbnM6OTAwMC8qJwogICAgdXJsOiBodHRwOi8vZnVuY3Rpb25zOjkwMDAvCiAgICByb3V0ZXM6CiAgICAgIC0gbmFtZTogZnVuY3Rpb25zLXYxLWFsbAogICAgICAgIHN0cmlwX3BhdGg6IHRydWUKICAgICAgICBwYXRoczoKICAgICAgICAgIC0gL2Z1bmN0aW9ucy92MS8KICAgIHBsdWdpbnM6CiAgICAgIC0gbmFtZTogY29ycwoKICAjIyBBbmFseXRpY3Mgcm91dGVzCiAgLSBuYW1lOiBhbmFseXRpY3MtdjEKICAgIF9jb21tZW50OiAnQW5hbHl0aWNzOiAvYW5hbHl0aWNzL3YxLyogLT4gaHR0cDovL2xvZ2ZsYXJlOjQwMDAvKicKICAgIHVybDogaHR0cDovL2FuYWx5dGljczo0MDAwLwogICAgcm91dGVzOgogICAgICAtIG5hbWU6IGFuYWx5dGljcy12MS1hbGwKICAgICAgICBzdHJpcF9wYXRoOiB0cnVlCiAgICAgICAgcGF0aHM6CiAgICAgICAgICAtIC9hbmFseXRpY3MvdjEvCgogICMjIFNlY3VyZSBEYXRhYmFzZSByb3V0ZXMKICAtIG5hbWU6IG1ldGEKICAgIF9jb21tZW50OiAncGctbWV0YTogL3BnLyogLT4gaHR0cDovL3BnLW1ldGE6ODA4MC8qJwogICAgdXJsOiBodHRwOi8vbWV0YTo4MDgwLwogICAgcm91dGVzOgogICAgICAtIG5hbWU6IG1ldGEtYWxsCiAgICAgICAgc3RyaXBfcGF0aDogdHJ1ZQogICAgICAgIHBhdGhzOgogICAgICAgICAgLSAvcGcvCiAgICBwbHVnaW5zOgogICAgICAtIG5hbWU6IGtleS1hdXRoCiAgICAgICAgY29uZmlnOgogICAgICAgICAgaGlkZV9jcmVkZW50aWFsczogZmFsc2UKICAgICAgLSBuYW1lOiBhY2wKICAgICAgICBjb25maWc6CiAgICAgICAgICBoaWRlX2dyb3Vwc19oZWFkZXI6IHRydWUKICAgICAgICAgIGFsbG93OgogICAgICAgICAgICAtIGFkbWluCgogICMjIFByb3RlY3RlZCBEYXNoYm9hcmQgLSBjYXRjaCBhbGwgcmVtYWluaW5nIHJvdXRlcwogIC0gbmFtZTogZGFzaGJvYXJkCiAgICBfY29tbWVudDogJ1N0dWRpbzogLyogLT4gaHR0cDovL3N0dWRpbzozMDAwLyonCiAgICB1cmw6IGh0dHA6Ly9zdHVkaW86MzAwMC8KICAgIHJvdXRlczoKICAgICAgLSBuYW1lOiBkYXNoYm9hcmQtYWxsCiAgICAgICAgc3RyaXBfcGF0aDogdHJ1ZQogICAgICAgIHBhdGhzOgogICAgICAgICAgLSAvCiAgICBwbHVnaW5zOgogICAgICAtIG5hbWU6IGNvcnMKICAgICAgLSBuYW1lOiBiYXNpYy1hdXRoCiAgICAgICAgY29uZmlnOgogICAgICAgICAgaGlkZV9jcmVkZW50aWFsczogdHJ1ZQ==",
+                            "encoding": "utf-8"
+                          }
+                        },
+                        "billing": {
+                          "deploymentPlan": "nf-compute-100-1"
+                        },
+                        "name": "kong",
+                        "ports": [
+                          {
+                            "internalPort": 8000,
+                            "protocol": "HTTP",
+                            "public": true,
+                            "name": "supa",
+                            "domains": [],
+                            "security": {
+                              "policies": [],
+                              "credentials": []
+                            },
+                            "disableNfDomain": false
+                          }
+                        ]
+                      },
+                      "ref": "kong"
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "Workflow",
+                "spec": {
+                  "type": "parallel",
+                  "steps": [
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "external": {
+                            "imagePath": "supabase/studio:v0.23.09"
+                          }
+                        },
+                        "runtimeEnvironment": {
+                          "SUPABASE_URL": "https://${refs.kong.ports.0.dns}",
+                          "STUDIO_PG_META_URL": "http://meta:8080",
+                          "SUPABASE_PUBLIC_URL": "${SUPABASE_URL}",
+                          "PORT": "3000",
+                          "SUPABASE_KEY_ADMIN": "${JWT_SECRET}",
+                          "SUPABASE_SERVICE_KEY": "${SERVICE_KEY}",
+                          "SUPABASE_ANON_KEY": "${ANON_KEY}",
+                          "META_URL": "http://meta:8080",
+                          "REST_URL": "http://rest:3000",
+                          "SUPABASE_REST_URL": "https://rest:3000",
+                          "PUBLIC_REST_URL": "${SUPABASE_URL}/rest/v1/",
+                          "API_JWT_SECRET": "${JWT_SECRET}"
+                        },
+                        "runtimeFiles": {},
+                        "billing": {
+                          "deploymentPlan": "nf-compute-200"
+                        },
+                        "name": "studio",
+                        "ports": [
+                          {
+                            "internalPort": 3000,
+                            "protocol": "HTTP",
+                            "public": true,
+                            "name": "app",
+                            "domains": [],
+                            "security": {
+                              "policies": [],
+                              "credentials": []
+                            },
+                            "disableNfDomain": false
+                          }
+                        ]
+                      },
+                      "ref": "studio"
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "name": "storage",
+                        "billing": {
+                          "deploymentPlan": "nf-compute-50"
+                        },
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "buildpack": {
+                            "configType": "default"
+                          },
+                          "storage": {
+                            "ephemeralStorage": {
+                              "storageSize": 1024
+                            }
+                          },
+                          "external": {
+                            "imagePath": "supabase/storage-api:v0.43.11"
+                          }
+                        },
+                        "ports": [
+                          {
+                            "name": "p01",
+                            "internalPort": 5000,
+                            "protocol": "HTTP",
+                            "security": {
+                              "credentials": [],
+                              "policies": []
+                            },
+                            "domains": []
+                          }
+                        ],
+                        "runtimeEnvironment": {
+                          "DATABASE_URL": "${DB_ADMIN_URL}",
+                          "DATABASE_POOL_URL": "${DB_ADMIN_URL}",
+                          "ENABLE_RATE_LIMITER": "false",
+                          "PGRST_JWT_SECRET": "${JWT_SECRET}",
+                          "FILE_SIZE_LIMIT": "52428800",
+                          "STORAGE_BACKEND": "s3",
+                          "REGION": "us-east-1",
+                          "PGOPTIONS": "-c search_path=storage,public",
+                          "POSTGREST_URL": "http://rest:3000",
+                          "GLOBAL_S3_FORCE_PATH_STYLE": "true",
+                          "IS_MULTITENANT": "false",
+                          "AWS_DEFAULT_REGION": "us-east-1",
+                          "TENANT_ID": "minio"
+                        },
+                        "healthChecks": []
+                      }
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "external": {
+                            "imagePath": "supabase/postgres-meta:v0.74.2"
+                          }
+                        },
+                        "runtimeEnvironment": {
+                          "PG_META_DB_URL": "${DB_ADMIN_URL}"
+                        },
+                        "runtimeFiles": {},
+                        "billing": {
+                          "deploymentPlan": "nf-compute-50"
+                        },
+                        "name": "meta",
+                        "ports": [
+                          {
+                            "internalPort": 8080,
+                            "protocol": "HTTP",
+                            "public": false,
+                            "name": "p01",
+                            "domains": [],
+                            "security": {
+                              "policies": [],
+                              "credentials": []
+                            },
+                            "disableNfDomain": false
+                          }
+                        ]
+                      },
+                      "ref": "meta"
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "external": {
+                            "imagePath": "postgrest/postgrest:v11.2.0"
+                          }
+                        },
+                        "runtimeEnvironment": {
+                          "PGRST_JWT_SECRET": "${JWT_SECRET}",
+                          "PGRST_APP_SETTINGS_JWT_SECRET": "${JWT_SECRET}",
+                          "PGRST_DB_ANON_ROLE": "anon",
+                          "PGRST_DB_SCHEMAS": "public,storage,graphql_public",
+                          "PGRST_DB_URI": "${DB_ADMIN_URL}"
+                        },
+                        "runtimeFiles": {},
+                        "billing": {
+                          "deploymentPlan": "nf-compute-50"
+                        },
+                        "name": "rest",
+                        "ports": [
+                          {
+                            "internalPort": 3000,
+                            "protocol": "HTTP",
+                            "public": true,
+                            "name": "p01",
+                            "domains": [],
+                            "security": {
+                              "policies": [],
+                              "credentials": []
+                            },
+                            "disableNfDomain": false
+                          }
+                        ]
+                      },
+                      "ref": "rest"
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "external": {
+                            "imagePath": "supabase/gotrue:v2.109.1"
+                          }
+                        },
+                        "runtimeEnvironment": {
+                          "GOTRUE_DB_DRIVER": "postgres",
+                          "GOTRUE_API_HOST": "0.0.0.0",
+                          "GOTRUE_API_PORT": "9999",
+                          "GOTRUE_URI_ALLOW_LIST": "*",
+                          "GOTRUE_DISABLE_SIGNUP": "false",
+                          "GOTRUE_JWT_ADMIN_ROLES": "service_role",
+                          "GOTRUE_JWT_AUD": "authenticated",
+                          "GOTRUE_JWT_EXP": "3600",
+                          "GOTRUE_JWT_SECRET": "${JWT_SECRET}",
+                          "GOTRUE_DB_DATABASE_URL": "${DB_ADMIN_URL}",
+                          "GOTRUE_SITE_URL": "https://${refs.kong.ports.0.dns}/auth/v1/",
+                          "API_EXTERNAL_URL": "https://${refs.kong.ports.0.dns}"
+                        },
+                        "runtimeFiles": {},
+                        "billing": {
+                          "deploymentPlan": "nf-compute-50"
+                        },
+                        "name": "auth",
+                        "ports": [
+                          {
+                            "internalPort": 9999,
+                            "public": false,
+                            "protocol": "HTTP",
+                            "name": "p01",
+                            "domains": [],
+                            "security": {
+                              "policies": [],
+                              "credentials": []
+                            },
+                            "disableNfDomain": false
+                          }
+                        ]
+                      },
+                      "ref": "auth"
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "customEntrypointCustomCommand",
+                            "customEntrypoint": "sh -c",
+                            "customCommand": "\"/app/bin/migrate && /app/bin/server\""
+                          },
+                          "external": {
+                            "imagePath": "supabase/realtime:v2.25.36"
+                          }
+                        },
+                        "runtimeEnvironment": {
+                          "REPLICATION_MODE": "RLS",
+                          "REPLICATION_POLL_INTERVAL": "100",
+                          "TEMPORARY_SLOT": "true",
+                          "SLOT_NAME": "supabase_realtime_rls",
+                          "SECURE_CHANNELS": "true",
+                          "PORT": "4000",
+                          "ERL_AFLAGS": "-proto_dist inet_tcp",
+                          "SECRET_KEY_BASE": "${JWT_SECRET}",
+                          "FLY_APP_NAME": "supabase",
+                          "DB_AFTER_CONNECT_QUERY": "SET search_path TO _realtime",
+                          "ENABLE_TAILSCALE": "false",
+                          "API_JWT_SECRET": "${JWT_SECRET}",
+                          "DB_ENC_KEY": "${args.DB_ENC_KEY}",
+                          "DNS_NODES": "''"
+                        },
+                        "runtimeFiles": {},
+                        "billing": {
+                          "deploymentPlan": "nf-compute-200"
+                        },
+                        "name": "realtime",
+                        "ports": [
+                          {
+                            "internalPort": 4000,
+                            "public": false,
+                            "protocol": "HTTP",
+                            "name": "p01",
+                            "domains": [],
+                            "security": {
+                              "policies": [],
+                              "credentials": []
+                            },
+                            "disableNfDomain": false
+                          }
+                        ],
+                        "healthChecks": [
+                          {
+                            "type": "readinessProbe",
+                            "protocol": "HTTP",
+                            "path": "/api/openapi",
+                            "port": 4000,
+                            "initialDelaySeconds": 5,
+                            "periodSeconds": 60,
+                            "timeoutSeconds": 10,
+                            "failureThreshold": 3,
+                            "successThreshold": 1
+                          }
+                        ]
+                      },
+                      "ref": "realtime"
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "docker": {
+                            "configType": "customCommand",
+                            "customCommand": "start"
+                          },
+                          "external": {
+                            "imagePath": "supabase/edge-runtime:v1.22.4"
+                          }
+                        },
+                        "runtimeEnvironment": {},
+                        "runtimeFiles": {
+                          "/examples/main/index.ts": {
+                            "data": "aW1wb3J0IHsgc2VydmUgfSBmcm9tICdodHRwczovL2Rlbm8ubGFuZC9zdGRAMC4xMzEuMC9odHRwL3NlcnZlci50cyc7Cgpjb25zb2xlLmxvZygnbWFpbiBmdW5jdGlvbiBzdGFydGVkJyk7CgpzZXJ2ZShhc3luYyAocmVxOiBSZXF1ZXN0KSA9PiB7Cgljb25zdCB1cmwgPSBuZXcgVVJMKHJlcS51cmwpOwoJY29uc3QgeyBwYXRobmFtZSB9ID0gdXJsOwoKCS8vIGhhbmRsZSBoZWFsdGggY2hlY2tzCglpZiAocGF0aG5hbWUgPT09ICcvX2ludGVybmFsL2hlYWx0aCcpIHsKCQlyZXR1cm4gbmV3IFJlc3BvbnNlKAoJCQlKU09OLnN0cmluZ2lmeSh7ICdtZXNzYWdlJzogJ29rJyB9KSwKCQkJeyBzdGF0dXM6IDIwMCwgaGVhZGVyczogeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0gfSwKCQkpOwoJfQoKCWNvbnN0IHBhdGhfcGFydHMgPSBwYXRobmFtZS5zcGxpdCgnLycpOwoJY29uc3Qgc2VydmljZV9uYW1lID0gcGF0aF9wYXJ0c1sxXTsKCglpZiAoIXNlcnZpY2VfbmFtZSB8fCBzZXJ2aWNlX25hbWUgPT09ICcnKSB7CgkJY29uc3QgZXJyb3IgPSB7IG1zZzogJ21pc3NpbmcgZnVuY3Rpb24gbmFtZSBpbiByZXF1ZXN0JyB9OwoJCXJldHVybiBuZXcgUmVzcG9uc2UoCgkJCUpTT04uc3RyaW5naWZ5KGVycm9yKSwKCQkJeyBzdGF0dXM6IDQwMCwgaGVhZGVyczogeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0gfSwKCQkpOwoJfQoKCWNvbnN0IHNlcnZpY2VQYXRoID0gYC4vZXhhbXBsZXMvJHtzZXJ2aWNlX25hbWV9YDsKCWNvbnNvbGUuZXJyb3IoYHNlcnZpbmcgdGhlIHJlcXVlc3Qgd2l0aCAke3NlcnZpY2VQYXRofWApOwoKCWNvbnN0IGNyZWF0ZVdvcmtlciA9IGFzeW5jICgpID0+IHsKCQljb25zdCBtZW1vcnlMaW1pdE1iID0gMTUwOwoJCWNvbnN0IHdvcmtlclRpbWVvdXRNcyA9IDUgKiA2MCAqIDEwMDA7CgkJY29uc3Qgbm9Nb2R1bGVDYWNoZSA9IGZhbHNlOwoJCS8vIHlvdSBjYW4gcHJvdmlkZSBhbiBpbXBvcnQgbWFwIGlubGluZQoJCS8vIGNvbnN0IGlubGluZUltcG9ydE1hcCA9IHsKCQkvLyAgIGltcG9ydHM6IHsKCQkvLyAgICAgInN0ZC8iOiAiaHR0cHM6Ly9kZW5vLmxhbmQvc3RkQDAuMTMxLjAvIiwKCQkvLyAgICAgImNvcnMiOiAiLi9leGFtcGxlcy9fc2hhcmVkL2NvcnMudHMiCgkJLy8gICB9CgkJLy8gfQoJCS8vIGNvbnN0IGltcG9ydE1hcFBhdGggPSBgZGF0YToke2VuY29kZVVSSUNvbXBvbmVudChKU09OLnN0cmluZ2lmeShpbXBvcnRNYXApKX0/JHtlbmNvZGVVUklDb21wb25lbnQoJy9ob21lL2Rlbm8vZnVuY3Rpb25zL3Rlc3QnKX1gOwoJCWNvbnN0IGltcG9ydE1hcFBhdGggPSBudWxsOwoJCWNvbnN0IGVudlZhcnNPYmogPSBEZW5vLmVudi50b09iamVjdCgpOwoJCWNvbnN0IGVudlZhcnMgPSBPYmplY3Qua2V5cyhlbnZWYXJzT2JqKS5tYXAoKGspID0+IFtrLCBlbnZWYXJzT2JqW2tdXSk7CgkJY29uc3QgZm9yY2VDcmVhdGUgPSBmYWxzZTsKCQljb25zdCBuZXRBY2Nlc3NEaXNhYmxlZCA9IGZhbHNlOwoKCQkvLyBsb2FkIHNvdXJjZSBmcm9tIGFuIGVzemlwCgkJLy8gY29uc3QgbWF5YmVFc3ppcCA9IGF3YWl0IERlbm8ucmVhZEZpbGUoJy4vc2FtcGxlLmVzemlwJyk7CgkJLy8gY29uc3QgbWF5YmVFbnRyeXBvaW50ID0gJ2ZpbGU6Ly8vc3JjL2luZGV4LnRzJzsKCQkvLyBvciBsb2FkIG1vZHVsZSBzb3VyY2UgZnJvbSBhbiBpbmxpbmUgbW9kdWxlCgkJLy8gY29uc3QgbWF5YmVNb2R1bGVDb2RlID0gJ0Rlbm8uc2VydmUoKHJlcSkgPT4gbmV3IFJlc3BvbnNlKCJIZWxsbyBmcm9tIE1vZHVsZSBDb2RlIikpOyc7CgoJCXJldHVybiBhd2FpdCBFZGdlUnVudGltZS51c2VyV29ya2Vycy5jcmVhdGUoewoJCQlzZXJ2aWNlUGF0aCwKCQkJbWVtb3J5TGltaXRNYiwKCQkJd29ya2VyVGltZW91dE1zLAoJCQlub01vZHVsZUNhY2hlLAoJCQlpbXBvcnRNYXBQYXRoLAoJCQllbnZWYXJzLAoJCQlmb3JjZUNyZWF0ZSwKCQkJbmV0QWNjZXNzRGlzYWJsZWQsCgkJCS8vIG1heWJlRXN6aXAsCgkJCS8vIG1heWJlRW50cnlwb2ludCwKCQkJLy8gbWF5YmVNb2R1bGVDb2RlLAoJCX0pOwoJfTsKCgljb25zdCBjYWxsV29ya2VyID0gYXN5bmMgKCkgPT4gewoJCXRyeSB7CgkJCS8vIElmIGEgd29ya2VyIGZvciB0aGUgZ2l2ZW4gc2VydmljZSBwYXRoIGFscmVhZHkgZXhpc3RzLAoJCQkvLyBpdCB3aWxsIGJlIHJldXNlZCBieSBkZWZhdWx0LgoJCQkvLyBVcGRhdGUgZm9yY2VDcmVhdGUgb3B0aW9uIGluIGNyZWF0ZVdvcmtlciB0byBmb3JjZSBjcmVhdGUgYSBuZXcgd29ya2VyIGZvciBlYWNoIHJlcXVlc3QuCgkJCWNvbnN0IHdvcmtlciA9IGF3YWl0IGNyZWF0ZVdvcmtlcigpOwoJCQljb25zdCBjb250cm9sbGVyID0gbmV3IEFib3J0Q29udHJvbGxlcigpOwoKCQkJY29uc3Qgc2lnbmFsID0gY29udHJvbGxlci5zaWduYWw7CgkJCS8vIE9wdGlvbmFsOiBhYm9ydCB0aGUgcmVxdWVzdCBhZnRlciBhIHRpbWVvdXQKCQkJLy9zZXRUaW1lb3V0KCgpID0+IGNvbnRyb2xsZXIuYWJvcnQoKSwgMiAqIDYwICogMTAwMCk7CgoJCQlyZXR1cm4gYXdhaXQgd29ya2VyLmZldGNoKHJlcSwgeyBzaWduYWwgfSk7CgkJfSBjYXRjaCAoZSkgewoJCQljb25zb2xlLmVycm9yKGUpOwoJCQljb25zdCBlcnJvciA9IHsgbXNnOiBlLnRvU3RyaW5nKCkgfTsKCQkJcmV0dXJuIG5ldyBSZXNwb25zZSgKCQkJCUpTT04uc3RyaW5naWZ5KGVycm9yKSwKCQkJCXsgc3RhdHVzOiA1MDAsIGhlYWRlcnM6IHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9IH0sCgkJCSk7CgkJfQoJfTsKCglyZXR1cm4gY2FsbFdvcmtlcigpOwp9KTs=",
+                            "encoding": "utf-8"
+                          },
+                          "/examples/hello-world/index.ts": {
+                            "data": "aW1wb3J0IHsgc2VydmUgfSBmcm9tICdodHRwczovL2Rlbm8ubGFuZC9zdGRAMC4xMzEuMC9odHRwL3NlcnZlci50cyc7CgppbnRlcmZhY2UgcmVxUGF5bG9hZCB7CgluYW1lOiBzdHJpbmc7Cn0KCmNvbnNvbGUuaW5mbygnc2VydmVyIHN0YXJ0ZWQgbW9kaWZpZWQnKTsKCnNlcnZlKGFzeW5jIChyZXE6IFJlcXVlc3QpID0+IHsKCWNvbnN0IHsgbmFtZSB9OiByZXFQYXlsb2FkID0gYXdhaXQgcmVxLmpzb24oKTsKCWNvbnN0IGRhdGEgPSB7CgkJbWVzc2FnZTogYEhlbGxvICR7bmFtZX0gZnJvbSBmb28hYCwKCQl0ZXN0OiAnZm9vJywKCX07CgoJcmV0dXJuIG5ldyBSZXNwb25zZSgKCQlKU09OLnN0cmluZ2lmeShkYXRhKSwKCQl7IGhlYWRlcnM6IHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJywgJ0Nvbm5lY3Rpb24nOiAna2VlcC1hbGl2ZScgfSB9LAoJKTsKfSwgeyBwb3J0OiA5MDA1IH0pOw==",
+                            "encoding": "utf-8"
+                          }
+                        },
+                        "billing": {
+                          "deploymentPlan": "nf-compute-50"
+                        },
+                        "name": "functions",
+                        "ports": [
+                          {
+                            "internalPort": 9000,
+                            "public": false,
+                            "protocol": "HTTP",
+                            "name": "p01",
+                            "domains": [],
+                            "security": {
+                              "policies": [],
+                              "credentials": []
+                            },
+                            "disableNfDomain": false
+                          }
+                        ],
+                        "healthChecks": []
+                      },
+                      "ref": "functions"
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "ManualJob",
+                "spec": {
+                  "runOnSourceChange": "never",
+                  "backoffLimit": 0,
+                  "activeDeadlineSeconds": 600,
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {
+                    "/scripts/create-tenant.sh": {
+                      "data": "Y3VybCAtdiAtWCBQT1NUIFwKICAtSCAnQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9qc29uJyBcCiAgLUggJ0F1dGhvcml6YXRpb246IEJlYXJlciAke1NFUlZJQ0VfS0VZfScgXAogIC1kICQnewogICAgInRlbmFudCIgOiB7CiAgICAgICJuYW1lIjogInJlYWx0aW1lIiwKICAgICAgImV4dGVybmFsX2lkIjogInJlYWx0aW1lIiwKICAgICAgImp3dF9zZWNyZXQiOiAiJHtKV1RfU0VDUkVUfSIsCiAgICAgICJleHRlbnNpb25zIjogWwogICAgICAgIHsKICAgICAgICAgICJ0eXBlIjogInBvc3RncmVzX2NkY19ybHMiLAogICAgICAgICAgInNldHRpbmdzIjogewogICAgICAgICAgICAiZGJfbmFtZSI6ICIke0RCX05BTUV9IiwKICAgICAgICAgICAgImRiX2hvc3QiOiAiJHtEQl9IT1NUfSIsCiAgICAgICAgICAgICJkYl91c2VyIjogIiR7REJfVVNFUn0iLAogICAgICAgICAgICAiZGJfcGFzc3dvcmQiOiAiJHtEQl9QQVNTV09SRH0iLAogICAgICAgICAgICAiZGJfcG9ydCI6ICIke0RCX1BPUlR9IiwKICAgICAgICAgICAgInJlZ2lvbiI6ICJ1cy13ZXN0LTEiLAogICAgICAgICAgICAicG9sbF9pbnRlcnZhbF9tcyI6IDEwMCwKICAgICAgICAgICAgInBvbGxfbWF4X3JlY29yZF9ieXRlcyI6IDEwNDg1NzYsCiAgICAgICAgICAgICJpcF92ZXJzaW9uIjogNAogICAgICAgICAgfQogICAgICAgIH0KICAgICAgXQogICAgfQogIH0nIGh0dHA6Ly9yZWFsdGltZTo0MDAwL2FwaS90ZW5hbnRz",
+                      "encoding": "utf-8"
+                    }
+                  },
+                  "billing": {
+                    "deploymentPlan": "nf-compute-200"
+                  },
+                  "deployment": {
+                    "docker": {
+                      "configType": "customEntrypointCustomCommand",
+                      "customEntrypoint": "/bin/sh -c",
+                      "customCommand": "/scripts/create-tenant.sh"
+                    },
+                    "external": {
+                      "imagePath": "alpine/curl:latest"
+                    }
+                  },
+                  "name": "realtime-tenant-creation",
+                  "disabledCI": false,
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": false
+                  },
+                  "buildArguments": {}
+                },
+                "ref": "realtime-tenant-creation"
+              },
+              {
+                "kind": "Condition",
+                "spec": {
+                  "kind": "Service",
+                  "spec": {
+                    "type": "running",
+                    "data": {
+                      "serviceId": "${refs.realtime.id}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "JobRun",
+                "spec": {
+                  "jobId": "${refs.realtime-tenant-creation.id}",
+                  "deployment": {
+                    "docker": {
+                      "configType": "customEntrypointCustomCommand",
+                      "customEntrypoint": "/bin/sh -c",
+                      "customCommand": "/scripts/create-tenant.sh"
+                    }
+                  }
+                },
+                "condition": "success"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

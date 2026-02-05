@@ -1,0 +1,1 @@
+-- Seeding moved to scripts/seed-db.sh to run after GoTrue migrations

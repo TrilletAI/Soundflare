@@ -1,0 +1,361 @@
+// components/MemberManagementDialog.tsx
+'use client'
+import React, { useState, useEffect, useCallback } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { 
+  UserPlus, 
+  Mail, 
+  Loader2, 
+  Users,
+  Clock,
+  CheckCircle,
+  AlertCircle
+} from 'lucide-react'
+
+interface Project {
+  id: string
+  name: string
+  user_role: string
+}
+
+interface Member {
+  id: number
+  clerk_id: string
+  role: string
+  permissions: Record<string, any>
+  joined_at: string
+  user: {
+    email: string
+    first_name: string | null
+    last_name: string | null
+    profile_image_url: string | null
+  }
+}
+
+interface PendingMapping {
+  id: number
+  email: string
+  role: string
+  permissions: Record<string, any>
+  created_at: string
+}
+
+interface MemberManagementDialogProps {
+  isOpen: boolean
+  onClose: any
+  project: Project | null
+}
+
+const MemberManagementDialog: React.FC<MemberManagementDialogProps> = ({
+  isOpen,
+  onClose,
+  project
+}) => {
+
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState('member')
+  const [loading, setLoading] = useState(false)
+  const [members, setMembers] = useState<Member[]>([])
+  const [pendingMappings, setPendingMappings] = useState<PendingMapping[]>([])
+  const [fetchingMembers, setFetchingMembers] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+
+  // Check if current user can manage members
+  const canManageMembers = project?.user_role === 'owner' || project?.user_role === 'admin'
+
+  const fetchMembers = useCallback(async () => {
+    if (!project) return
+    
+    setFetchingMembers(true)
+    try {
+      const response = await fetch(`/api/projects/${project.id}/members`)
+
+      if (response.ok) {
+        const data = await response.json()
+
+        console.log("Fetched members data:", data)
+        setMembers(data.members || [])
+        setPendingMappings(data.pending_mappings || [])
+      }
+    } catch (error) {
+      console.error('Error fetching members:', error)
+    } finally {
+      setFetchingMembers(false)
+    }
+  }, [project])
+
+  useEffect(() => {
+    if (isOpen && project && canManageMembers) {
+      fetchMembers()
+    }
+  }, [isOpen, project, canManageMembers, fetchMembers])
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!project || !email.trim()) {
+      setMessage({ type: 'error', text: 'Please enter an email address' })
+      return
+    }
+
+    setLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch(`/api/projects/${project.id}/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          role: role
+        }),
+      })
+
+      const data = await response.json()
+
+      console.log("user_data",data)
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Member must be logged in.')
+      }
+
+      setMessage({ 
+        type: 'success', 
+        text: data.type === 'direct_add' 
+          ? 'User added to project successfully!'
+          : 'Email added! User will be added when they sign up.'
+      })
+      
+      setEmail('')
+      setRole('member')
+      
+      // Refresh members list
+      fetchMembers()
+      
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Member must be logged in.'
+      setMessage({ type: 'error', text: errorMessage })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'owner': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+      case 'user': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+      case 'admin': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+      case 'member': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+      case 'viewer': return 'bg-gray-100 text-gray-800 dark:bg-neutral-700 dark:text-gray-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-neutral-700 dark:text-gray-300'
+    }
+  }
+
+  const getUserInitials = (firstName: string | null, lastName: string | null, email: string) => {
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`.toUpperCase()
+    }
+    if (firstName) {
+      return firstName.substring(0, 2).toUpperCase()
+    }
+    return email.substring(0, 2).toUpperCase()
+  }
+
+  const handleClose = () => {
+    setEmail('')
+    setRole('member')
+    setMessage(null)
+    setMembers([])
+    setPendingMappings([])
+    onClose()
+  }
+
+  if (!project) return null
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+            <Users className="h-5 w-5" />
+            Manage Members - {project.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Access Check */}
+          {!canManageMembers && (
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                  You need admin or owner access to manage project members.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Add Member Form */}
+          {canManageMembers && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Add New Member</h3>
+              
+              {message && (
+                <div className={`p-3 rounded-lg ${
+                  message.type === 'success' 
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800' 
+                    : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
+                }`}>
+                  {message.text}
+                </div>
+              )}
+
+              <form onSubmit={handleAddMember} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-500"
+                    placeholder="colleague@example.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Role
+                  </label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-500"
+                  >
+                    <option value="user">User</option>
+                    <option value="viewer">Viewer (Read only)</option>
+                    <option value="member">Member (Read & Write)</option>
+                    <option value="admin">Admin (Read, Write & Delete)</option>
+                  </select>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <UserPlus className="w-4 h-4 mr-2" />
+                  )}
+                  {loading ? 'Adding...' : 'Add Member'}
+                </Button>
+              </form>
+            </div>
+          )}
+
+          {/* Members List */}
+          {canManageMembers && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Current Members ({members.length})</h3>
+              
+              {fetchingMembers ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-orange-600 dark:text-orange-400" />
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">Loading members...</span>
+                </div>
+              ) : members.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-4">No members found</p>
+              ) : (
+                <div className="space-y-3">
+                  {members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-neutral-700 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={member.user.profile_image_url || undefined} />
+                          <AvatarFallback className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300">
+                            {getUserInitials(member.user.first_name, member.user.last_name, member.user.email)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {member.user.first_name && member.user.last_name 
+                              ? `${member.user.first_name} ${member.user.last_name}`
+                              : member.user.email
+                            }
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{member.user.email}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            Joined {new Date(member.joined_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getRoleBadgeColor(member.role)}>
+                          {member.role}
+                        </Badge>
+                        <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pending Email Mappings */}
+              {pendingMappings.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Pending Invitations ({pendingMappings.length})
+                  </h4>
+                  {pendingMappings.map((mapping) => (
+                    <div key={mapping.id} className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-yellow-200 dark:bg-yellow-700/50 rounded-full flex items-center justify-center">
+                          <Mail className="h-5 w-5 text-yellow-700 dark:text-yellow-300" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{mapping.email}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Invited {new Date(mapping.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getRoleBadgeColor(mapping.role)}>
+                          {mapping.role}
+                        </Badge>
+                        <Clock className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Close Button */}
+          <div className="pt-4 border-t border-neutral-200 dark:border-neutral-700">
+            <Button onClick={handleClose} variant="outline" className="w-full border-neutral-300 dark:border-neutral-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700">
+              Close
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export default MemberManagementDialog

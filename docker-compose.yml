@@ -1,0 +1,124 @@
+services:
+  # --- SoundFlare Web Application ---
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Pass build-time env vars from .env
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:54321}
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    container_name: soundflare-web
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - soundflare-network
+
+  # --- Database (PostgreSQL) ---
+  db:
+    image: supabase/postgres:15.1.1.2
+    container_name: soundflare-db
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_net,pg_stat_statements
+      - -c
+      - listen_addresses=*
+      - -c
+      - log_min_messages=fatal
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-token-change-me-in-prod}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/db-init:/docker-entrypoint-initdb.d
+      - soundflare-db-data:/var/lib/postgresql/data
+    networks:
+      - soundflare-network
+
+  # --- Supabase Auth (GoTrue) ---
+  auth:
+    image: supabase/gotrue:v2.94.0
+    container_name: soundflare-auth
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - API_EXTERNAL_URL=http://localhost:54321/auth/v1
+      - GOTRUE_EXTERNAL_URL=http://localhost:54321/auth/v1
+      - GOTRUE_DB_DRIVER=postgres
+      - GOTRUE_DB_DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres?search_path=auth
+      - GOTRUE_SITE_URL=http://localhost:8000
+      - GOTRUE_JWT_SECRET=${JWT_SECRET:-super-secret-jwt-token-change-me-in-prod}
+      - GOTRUE_JWT_EXP=3600
+      - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
+      - GOTRUE_MAILER_AUTOCONFIRM=true # Auto-confirm users for ease of use
+      - GOTRUE_DB_MAX_POOL_SIZE=20
+    ports:
+      - "9999:8081" # Direct access if needed
+    networks:
+      - soundflare-network
+
+  # --- Supabase API (PostgREST) ---
+  rest:
+    image: postgrest/postgrest:v10.1.1
+    container_name: soundflare-rest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PGRST_DB_URI=postgresql://postgres:postgres@db:5432/postgres
+      - PGRST_DB_SCHEMA=public,auth
+      - PGRST_DB_ANON_ROLE=anon
+      - PGRST_JWT_SECRET=${JWT_SECRET:-super-secret-jwt-token-change-me-in-prod}
+      - PGRST_DB_USE_STATS=false
+    ports:
+      - "3000:3000" # Direct access if needed
+    networks:
+      - soundflare-network
+
+  # --- Kong Gateway (Acts as the single Supabase URL) ---
+  # This makes the stack compatible with the standard Supabase client URL
+  kong:
+    image: kong:2.8.1-alpine
+    container_name: soundflare-kong
+    depends_on:
+      - auth
+      - rest
+    environment:
+      - KONG_DATABASE=off
+      - KONG_DECLARATIVE_CONFIG=/var/lib/kong/kong.yml
+      - KONG_PROXY_LISTEN=0.0.0.0:54321
+    ports:
+      - "54321:54321"
+    volumes:
+      - ./docker/kong.yml:/var/lib/kong/kong.yml
+    networks:
+      - soundflare-network
+
+networks:
+  soundflare-network:
+    driver: bridge
+
+volumes:
+  soundflare-db-data:
+    driver: local

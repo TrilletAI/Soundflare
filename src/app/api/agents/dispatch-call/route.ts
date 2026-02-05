@@ -1,0 +1,147 @@
+// src/app/api/agents/dispatch-call/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  try {
+    const apiUrl = process.env.PYPEAI_API_URL
+    
+    if (!apiUrl) {
+      console.error('PYPEAI_API_URL environment variable is not set')
+      return NextResponse.json(
+        { error: 'API configuration error' },
+        { status: 500 }
+      )
+    }
+
+    // Parse the request body
+    const body = await request.json()
+    const { agent_name, phone_number, sip_trunk_id, provider } = body
+
+    if (!agent_name) {
+      return NextResponse.json(
+        { error: 'agent_name is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!phone_number) {
+      return NextResponse.json(
+        { error: 'phone_number is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!sip_trunk_id) {
+      return NextResponse.json(
+        { error: 'sip_trunk_id is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!provider) {
+      return NextResponse.json(
+        { error: 'provider is required' },
+        { status: 400 }
+      )
+    }
+
+    console.log(`Dispatching call: Agent ${agent_name} to ${phone_number}`)
+    console.log(`SIP Trunk ID: ${sip_trunk_id}, Provider: ${provider}`)
+    console.log(`Proxying request to: ${apiUrl}/dispatch_call`)
+
+    // Call the backend /dispatch_call endpoint
+    const response = await fetch(`${apiUrl}/dispatch_call`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': 'soundflare-api-v1',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        agent_name, 
+        phone_number,
+        sip_trunk_id,
+        provider
+      })
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      console.error(`Backend API error: ${response.status} ${response.statusText} - ${errorText}`)
+      
+      // Try to parse error as JSON for better error messages
+      let errorMessage = `Failed to dispatch call`
+      let errorDetails: any = {}
+      
+      try {
+        const errorJson = JSON.parse(errorText)
+        
+        // Handle 429 rate limit errors specifically
+        if (response.status === 429) {
+          errorMessage = errorJson.message || errorJson.detail || 'Rate limit exceeded. Please try again later.'
+          if (errorJson.current_calls !== undefined && errorJson.max_calls !== undefined) {
+            errorDetails = {
+              message: errorMessage,
+              current_calls: errorJson.current_calls,
+              max_calls: errorJson.max_calls
+            }
+            errorMessage = `Rate limit exceeded. Current calls: ${errorJson.current_calls}/${errorJson.max_calls}. Please try again later.`
+          }
+        } else {
+          // Handle other errors
+          errorMessage = errorJson.message || errorJson.detail || errorJson.error || errorMessage
+          if (errorJson.detail) {
+            errorDetails = { detail: errorJson.detail }
+          }
+        }
+      } catch {
+        // If not JSON, use the text as error message
+        if (response.status === 429) {
+          errorMessage = 'Rate limit exceeded. Please try again later.'
+        } else {
+          errorMessage = errorText || errorMessage
+        }
+      }
+      
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          ...errorDetails,
+          status: response.status
+        },
+        { status: response.status }
+      )
+    }
+
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      const textResponse = await response.text()
+      console.error('Non-JSON response from backend:', textResponse.substring(0, 200))
+      return NextResponse.json(
+        { error: 'Backend returned non-JSON response' },
+        { status: 502 }
+      )
+    }
+
+    const data = await response.json()
+    console.log('Dispatch call response:', data)
+    
+    return NextResponse.json(data)
+
+  } catch (error: any) {
+    console.error('Dispatch call proxy error:', error)
+    
+    // Handle different types of errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      return NextResponse.json(
+        { error: 'Unable to connect to voice agent service' },
+        { status: 503 }
+      )
+    }
+    
+    return NextResponse.json(
+      { error: 'Failed to dispatch call', details: error.message },
+      { status: 500 }
+    )
+  }
+}
