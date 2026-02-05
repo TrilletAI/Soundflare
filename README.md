@@ -171,5 +171,4 @@ async def entrypoint(ctx: JobContext):
 This project is licensed under the MIT License.
 
 ## 🤝 Support
-
 - **GitHub**: [Report issues](https://github.com/TrilletAI/soundflare/issues)
