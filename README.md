@@ -172,5 +172,4 @@ This project is licensed under the MIT License.
 
 ## 🤝 Support
 
-- **Discord**: [Join our community](https://discord.gg/hrj7H82WQG)
-- **GitHub**: [Report issues](https://github.com/Trillet-AI/soundflare/issues)
+- **GitHub**: [Report issues](https://github.com/TrilletAI/soundflare/issues)
