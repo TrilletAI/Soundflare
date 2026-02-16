@@ -107,13 +107,27 @@ docker compose --env-file .env.docker up -d
 echo -e "${BLUE}Waiting for database to be ready...${NC}"
 sleep 5
 
-# Create database schema
-echo -e "${BLUE}Creating database schema...${NC}"
+# Apply database schema (idempotent — safe to re-run without data loss)
+echo -e "${BLUE}Applying database schema...${NC}"
 docker exec -i soundflare-db psql -U postgres -d postgres < database/setup-supabase.sql
-echo -e "${GREEN}✅ Database schema created${NC}"
+echo -e "${GREEN}✅ Schema applied${NC}"
 
-# Seed the database
-./scripts/seed-db.sh
+# Reload PostgREST schema cache (it started before FKs/grants were applied)
+echo -e "${BLUE}Reloading PostgREST schema cache...${NC}"
+docker restart soundflare-rest
+sleep 5
+echo -e "${GREEN}✅ PostgREST reloaded${NC}"
+
+# Only seed if admin user doesn't exist yet (first run)
+ADMIN_EXISTS=$(docker exec soundflare-db psql -U postgres -d postgres -tAc \
+  "SELECT count(*) FROM auth.users WHERE email = 'admin@soundflare.ai'" 2>/dev/null || echo "0")
+
+if [ "$ADMIN_EXISTS" -lt "1" ] 2>/dev/null; then
+    echo -e "${BLUE}First run detected — seeding database...${NC}"
+    ./scripts/seed-db.sh
+else
+    echo -e "${GREEN}✅ Database already seeded (admin user exists)${NC}"
+fi
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
