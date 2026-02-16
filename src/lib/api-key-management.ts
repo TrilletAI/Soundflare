@@ -1,11 +1,7 @@
 // src/lib/api-key-management.ts
 import crypto from 'crypto'
 import { encryptWithTrilletKey } from './trillet-evals-crypto'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getSupabaseAdmin } from './supabase-server'
 
 /**
  * Generate a secure API token with soundflare prefix
@@ -45,7 +41,7 @@ export async function createProjectApiKey(
     const tokenHashMaster = encryptWithTrilletKey(apiToken)
     const maskedKey = maskToken(apiToken)
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('soundflare_api_keys')
       .insert({
         project_id: projectId,
@@ -79,7 +75,7 @@ export async function getProjectApiKeys(projectId: string) {
     try {
       console.log('Getting API keys for project:', projectId)
       
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseAdmin()
         .from('soundflare_api_keys')
         .select('*')
         .eq('project_id', projectId)
@@ -108,7 +104,7 @@ export async function getProjectApiKeys(projectId: string) {
  */
 export async function updateKeyLastUsed(tokenHash: string): Promise<void> {
   try {
-    await supabase
+    await getSupabaseAdmin()
       .from('soundflare_api_keys')
       .update({ last_used: new Date().toISOString() })
       .eq('token_hash', tokenHash)

@@ -1,14 +1,9 @@
 // src/app/api/projects/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth } from '@/lib/auth'
 import crypto from 'crypto'
 import { createProjectApiKey } from '@/lib/api-key-management'
-
-// Create Supabase client for server-side operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Generate a secure API token
 function generateApiToken(): string {
@@ -44,7 +39,7 @@ export async function PUT(
       const newHashedToken = hashToken(newApiToken)
 
       // Update the project with the new hashed token
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseAdmin()
         .from('soundflare_projects')
         .update({ token_hash: newHashedToken })
         .eq('id', projectId)
@@ -139,7 +134,7 @@ export async function PATCH(
     }
 
     // Update the project with retry configuration
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .update({ retry_configuration })
       .eq('id', projectId)
@@ -184,7 +179,7 @@ export async function DELETE(
     console.log(`Starting cascade delete for project: ${projectId}`)
 
     // 1. Get all agents for this project first
-    const { data: agents, error: agentsError } = await supabase
+    const { data: agents, error: agentsError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('id')
       .eq('project_id', projectId)
@@ -202,7 +197,7 @@ export async function DELETE(
 
     // 2. Delete call logs for all agents in this project
     if (agentIds.length > 0) {
-      const { error: callLogsError } = await supabase
+      const { error: callLogsError } = await getSupabaseAdmin()
         .from('soundflare_call_logs')
         .delete()
         .in('agent_id', agentIds)
@@ -217,7 +212,7 @@ export async function DELETE(
       console.log('Successfully deleted call logs')
 
       // 3. Delete metrics logs (adjust based on your schema relationships)
-      const { error: metricsError } = await supabase
+      const { error: metricsError } = await getSupabaseAdmin()
         .from('soundflare_metrics_logs')
         .delete()
         .in('session_id', agentIds) // Adjust this field based on your actual schema
@@ -233,7 +228,7 @@ export async function DELETE(
     console.log('Successfully deleted auth tokens')
 
     // 5. Delete all agents for this project
-    const { error: agentsDeleteError } = await supabase
+    const { error: agentsDeleteError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .delete()
       .eq('project_id', projectId)
@@ -248,7 +243,7 @@ export async function DELETE(
     console.log('Successfully deleted agents')
 
     // 6. Finally, delete the project itself (CASCADE will handle soundflare_api_keys)
-    const { error: projectError } = await supabase
+    const { error: projectError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .delete()
       .eq('id', projectId)
@@ -295,7 +290,7 @@ export async function GET(
 
     console.log('Fetching project:', projectId);
 
-    const { data: projectRow, error: fetchError } = await supabase
+    const { data: projectRow, error: fetchError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .select('*')
       .eq('id', projectId)

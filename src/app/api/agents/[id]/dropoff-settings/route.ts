@@ -1,10 +1,6 @@
 // src/app/api/agents/[id]/dropoff-settings/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 // GET: Fetch drop-off settings for an agent
 export async function GET(
@@ -21,7 +17,7 @@ export async function GET(
       )
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('soundflare_agent_dropoff_settings')
       .select('*')
       .eq('agent_id', agentId)
@@ -94,7 +90,7 @@ export async function POST(
     }
 
     // Fetch agent name from soundflare_agents table
-    const { data: agent, error: agentError } = await supabase
+    const { data: agent, error: agentError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('name')
       .eq('id', agentId)
@@ -113,7 +109,7 @@ export async function POST(
     const agentNameWithId = `${agent.name}_${sanitizedAgentId}`
 
     // Check if settings already exist for this agent
-    const { data: existing } = await supabase
+    const { data: existing } = await getSupabaseAdmin()
       .from('soundflare_agent_dropoff_settings')
       .select('id')
       .eq('agent_id', agentId)
@@ -136,7 +132,7 @@ export async function POST(
     let result
     if (existing) {
       // Update existing settings
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseAdmin()
         .from('soundflare_agent_dropoff_settings')
         .update(settingsData)
         .eq('id', existing.id)
@@ -154,7 +150,7 @@ export async function POST(
       result = data
     } else {
       // Create new settings
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseAdmin()
         .from('soundflare_agent_dropoff_settings')
         .insert({
           ...settingsData,
@@ -202,7 +198,7 @@ export async function DELETE(
       )
     }
 
-    const { error } = await supabase
+    const { error } = await getSupabaseAdmin()
       .from('soundflare_agent_dropoff_settings')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('agent_id', agentId)

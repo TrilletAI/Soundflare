@@ -1,12 +1,7 @@
 // src/app/api/user/create/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth, currentUser } from '@/lib/auth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await getSupabaseAdmin()
       .from('soundflare_users')
       .select('id, clerk_id')
       .or(`clerk_id.eq.${userId},email.eq.${email}`)
@@ -41,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new user
-    const { data: newUser, error: createError } = await supabase
+    const { data: newUser, error: createError } = await getSupabaseAdmin()
       .from('soundflare_users')
       .insert({
         clerk_id: userId,

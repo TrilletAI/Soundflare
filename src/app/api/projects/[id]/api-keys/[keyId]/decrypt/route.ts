@@ -1,13 +1,8 @@
 // src/app/api/projects/[id]/api-keys/[keyId]/decrypt/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { decryptWithTrilletKey } from '@/lib/trillet-evals-crypto'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 export async function POST(
   request: NextRequest,
@@ -22,7 +17,7 @@ export async function POST(
     const { id: projectId, keyId } = await params
 
     // Get the encrypted key
-    const { data: apiKey, error } = await supabase
+    const { data: apiKey, error } = await getSupabaseAdmin()
       .from('soundflare_api_keys')
       .select('token_hash_master, project_id')
       .eq('id', keyId)

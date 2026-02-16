@@ -1,12 +1,7 @@
 // src/app/api/reprocess-call-logs/count/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,7 +67,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build base query with count
-    let query = supabase
+    let query = getSupabaseAdmin()
       .from('soundflare_call_logs')
       .select('*', { count: 'exact', head: true })
 
@@ -81,7 +76,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('agent_id', agent_id)
     } else if (project_id) {
       // If no agent_id but project_id, get all agents for this project first
-      const { data: agents } = await supabase
+      const { data: agents } = await getSupabaseAdmin()
         .from('soundflare_agents')
         .select('id')
         .eq('project_id', project_id)

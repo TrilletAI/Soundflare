@@ -1,13 +1,8 @@
 // src/app/api/user/users/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth } from '@/lib/auth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 //use auth to get the user id
 
@@ -18,7 +13,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userRow, error: fetchError } = await supabase
+    const { data: userRow, error: fetchError } = await getSupabaseAdmin()
       .from('soundflare_users')
       .select('*')
       .eq('clerk_id', userId)

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { sendResponse } from '../../../../lib/response';
 import { verifyToken } from '../../../../lib/auth';
 import { totalCostsINR } from '../../../../lib/calculateCost';
@@ -7,11 +6,7 @@ import { processFPOTranscript } from '../../../../lib/transcriptProcessor';
 import { CallLogRequest, TranscriptWithMetrics, UsageData, TelemetryAnalytics, TelemetryData } from '../../../../types/logs';
 import { gunzipSync } from 'zlib';
 import { triggerAIReviewFireAndForget } from '@/utils/fireAndForgetReview';
-
-// Create server-side Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 // Decompression function for compressed data
 function decompressData(compressedData: string): any {
@@ -242,7 +237,7 @@ export async function POST(request: NextRequest) {
       call_ended_at: logData.call_ended_at
     });
     
-    const { data: insertedLog, error: insertError } = await supabase
+    const { data: insertedLog, error: insertError } = await getSupabaseAdmin()
       .from('soundflare_call_logs')
       .insert(logData)
       .select()
@@ -267,7 +262,7 @@ export async function POST(request: NextRequest) {
     if (telemetry_data && (telemetry_data as any).session_traces && (telemetry_data as any).session_traces.length > 0) {
       const traceKey = `session_${insertedLog.id}`;
 
-      const { data: insertedTrace, error: traceError } = await supabase
+      const { data: insertedTrace, error: traceError } = await getSupabaseAdmin()
         .from('soundflare_session_traces')
         .insert({
           session_id: insertedLog.id,
@@ -305,7 +300,7 @@ export async function POST(request: NextRequest) {
           request_id_source: span.request_id_source
         }));
 
-        const { error: spansError } = await supabase
+        const { error: spansError } = await getSupabaseAdmin()
           .from('soundflare_spans')
           .insert(spanInserts)
           .select('id');
@@ -365,7 +360,7 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      const { error: turnsError } = await supabase
+      const { error: turnsError } = await getSupabaseAdmin()
         .from('soundflare_metrics_logs')
         .insert(conversationTurns);
 
@@ -392,7 +387,7 @@ export async function POST(request: NextRequest) {
           callStartedAt: call_started_at
         });
 
-      const { error: costError } = await supabase
+      const { error: costError } = await getSupabaseAdmin()
         .from('soundflare_call_logs')
         .update({
           total_llm_cost: total_llm_cost_inr,
@@ -413,7 +408,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Process transcript with field extraction
-    const { data: agentConfig, error: agentError } = await supabase
+    const { data: agentConfig, error: agentError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('field_extractor, field_extractor_prompt')
       .eq('id', agent_id)
@@ -437,7 +432,7 @@ export async function POST(request: NextRequest) {
             field_extractor_prompt: agentConfig.field_extractor_prompt,
           });
 
-          const { error: insertFpoError } = await supabase
+          const { error: insertFpoError } = await getSupabaseAdmin()
             .from('soundflare_call_logs')
             .update({
               transcription_metrics: fpoResult?.logData
@@ -461,7 +456,7 @@ export async function POST(request: NextRequest) {
     try {
       if (insertedLog?.id && agent_id) {
         // Check if auto-review is enabled for this agent
-        const { data: agentData } = await supabase
+        const { data: agentData } = await getSupabaseAdmin()
           .from('soundflare_agents')
           .select('auto_review_enabled')
           .eq('id', agent_id)
@@ -471,7 +466,7 @@ export async function POST(request: NextRequest) {
         
         if (autoReviewEnabled) {
           // Create pending review record for tracking
-          const { error: queueError } = await supabase
+          const { error: queueError } = await getSupabaseAdmin()
             .from('call_reviews')
             .upsert(
               {

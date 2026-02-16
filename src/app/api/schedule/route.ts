@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Create Supabase client for server-side operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,7 +48,7 @@ export async function POST(request: NextRequest) {
       const campaign_config = {endDate: end_date, startDate: start_date, dailyEndTime: end_time, dailyStartTime: start_time}
       
       
-      const { error: projectUpdateError } = await supabase
+      const { error: projectUpdateError } = await getSupabaseAdmin()
         .from('soundflare_projects')
         .update({ retry_configuration: retry_config, campaign_config:campaign_config })
         .eq('id', project_id)

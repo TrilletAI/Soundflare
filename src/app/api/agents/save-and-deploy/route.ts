@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { decryptWithTrilletKey } from '@/lib/trillet-evals-crypto'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +45,7 @@ export async function POST(request: NextRequest) {
     if (agentId) {
       try {
         // Get agent record to find project_id
-        const { data: agent, error: agentError } = await supabase
+        const { data: agent, error: agentError } = await getSupabaseAdmin()
           .from('soundflare_agents')
           .select('project_id, configuration')
           .eq('id', agentId)
@@ -61,7 +57,7 @@ export async function POST(request: NextRequest) {
           // Get API key from soundflare_api_keys table
           if (projectId) {
             // Get the first API key for this project (most recent)
-            const { data: apiKey, error: keyError } = await supabase
+            const { data: apiKey, error: keyError } = await getSupabaseAdmin()
               .from('soundflare_api_keys')
               .select('id, token_hash, token_hash_master')
               .eq('project_id', projectId)

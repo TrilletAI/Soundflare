@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +9,7 @@ export async function GET(
     const { id: agentId } = await params
 
     // Fetch only what we need for the sidebar
-    const { data: agent, error } = await supabase
+    const { data: agent, error } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('id, agent_type')
       .eq('id', agentId)

@@ -1,12 +1,7 @@
 // src/app/api/projects/[id]/members/[memberId]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth, currentUser } from '@/lib/auth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 function getPermissionsByRole(role: string): Record<string, boolean> {
   const rolePermissions: Record<string, Record<string, boolean>> = {
@@ -45,7 +40,7 @@ export async function PATCH(
     }
 
     // ✅ FIXED: Check if current user has admin/owner access (only active mappings)
-    const { data: userAccessMapping, error: accessError } = await supabase
+    const { data: userAccessMapping, error: accessError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('role, clerk_id, email, is_active')
       .eq('project_id', projectId)
@@ -63,7 +58,7 @@ export async function PATCH(
     }
 
     // ✅ FIXED: Get the member being updated (check only active members for role changes)
-    const { data: memberToUpdate, error: memberError } = await supabase
+    const { data: memberToUpdate, error: memberError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('*')
       .eq('id', memberId)
@@ -98,7 +93,7 @@ export async function PATCH(
     // Update the member's role
     const permissions = getPermissionsByRole(role)
     
-    const { data: updatedMember, error: updateError } = await supabase
+    const { data: updatedMember, error: updateError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .update({ 
         role,
@@ -144,7 +139,7 @@ export async function DELETE(
     const permanent = searchParams.get('permanent') === 'true'
 
     // ✅ FIXED: Check if current user has admin/owner access (only active mappings)
-    const { data: userAccessMapping, error: accessError } = await supabase
+    const { data: userAccessMapping, error: accessError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('role, clerk_id, email, is_active')
       .eq('project_id', projectId)
@@ -162,7 +157,7 @@ export async function DELETE(
     }
 
     // ✅ FIXED: Get the member to delete (check ALL records, not just active)
-    const { data: memberToDelete, error: fetchError } = await supabase
+    const { data: memberToDelete, error: fetchError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('*')
       .eq('id', memberId)
@@ -190,7 +185,7 @@ export async function DELETE(
     // Handle permanent vs soft delete
     if (permanent) {
       // Hard delete - permanently remove from database
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await getSupabaseAdmin()
         .from('soundflare_email_project_mapping')
         .delete()
         .eq('id', memberId)
@@ -207,7 +202,7 @@ export async function DELETE(
       }, { status: 200 })
     } else {
       // Soft delete - set is_active to false
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await getSupabaseAdmin()
         .from('soundflare_email_project_mapping')
         .update({ is_active: false })
         .eq('id', memberId)
