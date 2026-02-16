@@ -1203,6 +1203,7 @@ COMMENT ON COLUMN public.call_reviews.has_wrong_outputs IS 'Whether the agent pr
 -- These roles are used by PostgREST based on JWT claims
 -- anon: for unauthenticated requests
 -- authenticated: for authenticated requests
+-- service_role: for server-side operations (bypasses RLS)
 
 -- Create roles if they don't exist
 DO $$
@@ -1213,24 +1214,31 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
         CREATE ROLE authenticated NOLOGIN;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        CREATE ROLE service_role NOLOGIN;
+    END IF;
 END
 $$;
 
 -- Grant usage on schema
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
 -- Grant select on all tables to anon (read-only for unauthenticated)
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 
 -- Grant all permissions to authenticated users
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT INSERT ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT UPDATE ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
+-- Grant full permissions to service_role (used by server-side API routes)
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 
 -- Set default privileges for future tables
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
