@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.docker-credentials.txt
+*.md
