@@ -1,14 +1,8 @@
 // src/app/api/agents/create-agent/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth } from '@/lib/auth'
 import { decryptWithTrilletKey } from '@/lib/trillet-evals-crypto'
-
-// Server-side Supabase client (prefer service role for row updates)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 type AgentQuotaState = {
   limits: { max_agents: number }
@@ -22,7 +16,7 @@ async function getOrInitProjectAgentState(projectId: string): Promise<{
   state: AgentQuotaState
   error?: string
 }> {
-  const { data: projectRow, error: fetchError } = await supabase
+  const { data: projectRow, error: fetchError } = await getSupabaseAdmin()
     .from('soundflare_projects')
     .select('id, agent')
     .eq('id', projectId)
@@ -43,7 +37,7 @@ async function getOrInitProjectAgentState(projectId: string): Promise<{
   const nextState: AgentQuotaState = (projectRow as any).agent || defaultState
 
   if (!(projectRow as any).agent) {
-    const { error: initError } = await supabase
+    const { error: initError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .update({ agent: nextState })
       .eq('id', projectRow.id)
@@ -102,9 +96,9 @@ async function rollbackSupabaseState(projectId: string, originalState: AgentQuot
   try {
     console.log('🔄 Attempting to rollback Supabase state for project:', projectId)
     
-    const { error: rollbackError } = await supabase
+    const { error: rollbackError } = await getSupabaseAdmin()
       .from('soundflare_projects')
-      .update({ agent: originalState }) 
+      .update({ agent: originalState })
       .eq('id', projectId)
 
     if (rollbackError) {
@@ -141,7 +135,7 @@ export async function POST(request: NextRequest) {
         console.log('🔍 Project ID not in request body, looking up from agent ID:', agentId)
         
         // Look up the project ID from the agent record
-        const { data: agentRecord, error: agentError } = await supabase
+        const { data: agentRecord, error: agentError } = await getSupabaseAdmin()
           .from('soundflare_agents')
           .select('project_id')
           .eq('id', agentId)
@@ -242,7 +236,7 @@ export async function POST(request: NextRequest) {
 
       console.log('🔍 Step 1 - Updated state to save:', JSON.stringify(step1State, null, 2))
 
-      const { error: step1Error } = await supabase
+      const { error: step1Error } = await getSupabaseAdmin()
         .from('soundflare_projects')
         .update({ agent: step1State })
         .eq('id', dbProjectId)
@@ -273,7 +267,7 @@ export async function POST(request: NextRequest) {
       if (agentPayload.agent && projectId) {
         try {
           // Get API key from soundflare_api_keys table
-          const { data: apiKey, error: keyError } = await supabase
+          const { data: apiKey, error: keyError } = await getSupabaseAdmin()
             .from('soundflare_api_keys')
             .select('id, token_hash, token_hash_master')
             .eq('project_id', projectId)
@@ -393,7 +387,7 @@ export async function POST(request: NextRequest) {
 
       console.log('🔍 Step 3 - Final state to save:', JSON.stringify(step3State, null, 2))
 
-      const { error: step3Error } = await supabase
+      const { error: step3Error } = await getSupabaseAdmin()
         .from('soundflare_projects')
         .update({ agent: step3State })
         .eq('id', dbProjectId)

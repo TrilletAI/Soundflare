@@ -1,10 +1,6 @@
 // src/app/api/webhooks/config/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if webhook config already exists for this agent
-    const { data: existingConfig, error: checkError } = await supabase
+    const { data: existingConfig, error: checkError } = await getSupabaseAdmin()
       .from('soundflare_webhook_configs')
       .select('id')
       .eq('agent_id', agent_id)
@@ -63,7 +59,7 @@ export async function POST(request: NextRequest) {
     let result
     if (existingConfig) {
       // Update existing config
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseAdmin()
         .from('soundflare_webhook_configs')
         .update({
           webhook_url: webhook_url.trim(),
@@ -88,7 +84,7 @@ export async function POST(request: NextRequest) {
       result = data
     } else {
       // Create new config
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseAdmin()
         .from('soundflare_webhook_configs')
         .insert({
           project_id,
@@ -141,7 +137,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    let query = supabase
+    let query = getSupabaseAdmin()
       .from('soundflare_webhook_configs')
       .select('*')
       .eq('is_active', true)
@@ -191,7 +187,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    let query = supabase
+    let query = getSupabaseAdmin()
       .from('soundflare_webhook_configs')
       .delete()
 

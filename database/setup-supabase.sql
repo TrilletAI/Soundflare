@@ -1,6 +1,6 @@
 -- SoundFlare Database Schema
 -- Copy and paste this entire file into Supabase SQL Editor
--- This script is idempotent - can be run multiple times safely
+-- This script is idempotent - safe to run multiple times without data loss
 -- Last Updated: 2026-02-03
 
 -- ==============================================
@@ -21,38 +21,15 @@ DROP FUNCTION IF EXISTS update_call_reviews_updated_at() CASCADE;
 DROP FUNCTION IF EXISTS update_dropoff_calls_updated_at() CASCADE;
 DROP FUNCTION IF EXISTS update_dropoff_settings_updated_at() CASCADE;
 
--- Drop existing tables (in reverse dependency order)
-DROP TABLE IF EXISTS public.soundflare_evaluation_results CASCADE;
-DROP TABLE IF EXISTS public.soundflare_evaluation_prompts CASCADE;
-DROP TABLE IF EXISTS public.soundflare_evaluation_campaigns CASCADE;
-DROP TABLE IF EXISTS public.call_reviews CASCADE;
-DROP TABLE IF EXISTS public.soundflare_dropoff_calls CASCADE;
-DROP TABLE IF EXISTS public.soundflare_agent_dropoff_settings CASCADE;
-DROP TABLE IF EXISTS public.soundflare_call_logs_with_context CASCADE;
-DROP TABLE IF EXISTS public.soundflare_call_logs_backup CASCADE;
-DROP TABLE IF EXISTS public.soundflare_spans CASCADE;
-DROP TABLE IF EXISTS public.soundflare_session_traces CASCADE;
-DROP TABLE IF EXISTS public.soundflare_custom_totals_configs CASCADE;
-DROP TABLE IF EXISTS public.soundflare_agent_call_log_views CASCADE;
-DROP TABLE IF EXISTS public.soundflare_api_keys CASCADE;
-DROP TABLE IF EXISTS public.soundflare_email_project_mapping CASCADE;
-DROP TABLE IF EXISTS public.soundflare_call_logs CASCADE;
-DROP TABLE IF EXISTS public.soundflare_metrics_logs CASCADE;
-DROP TABLE IF EXISTS public.soundflare_agents CASCADE;
-DROP TABLE IF EXISTS public.soundflare_projects CASCADE;
-DROP TABLE IF EXISTS public.soundflare_users CASCADE;
-DROP TABLE IF EXISTS public.soundflare_reprocess_status CASCADE;
-DROP TABLE IF EXISTS public.usd_to_inr_rate CASCADE;
-DROP TABLE IF EXISTS public.gpt_api_pricing_inr CASCADE;
-DROP TABLE IF EXISTS public.gpt_api_pricing CASCADE;
-DROP TABLE IF EXISTS public.audio_api_pricing CASCADE;
+-- NOTE: Table DROP statements removed to preserve user data between restarts.
+-- Tables use CREATE TABLE IF NOT EXISTS below for safe re-runs.
 
 -- ==============================================
 -- CORE TABLES
 -- ==============================================
 
 -- Base pricing tables
-CREATE TABLE public.audio_api_pricing (
+CREATE TABLE IF NOT EXISTS public.audio_api_pricing (
     service_type text,
     provider text,
     model_or_plan text,
@@ -62,14 +39,14 @@ CREATE TABLE public.audio_api_pricing (
     source_url text
 );
 
-CREATE TABLE public.gpt_api_pricing (
+CREATE TABLE IF NOT EXISTS public.gpt_api_pricing (
     model_name text,
     input_usd_per_million numeric,
     output_usd_per_million numeric,
     created_at timestamp with time zone DEFAULT now()
 );
 
-CREATE TABLE public.gpt_api_pricing_inr (
+CREATE TABLE IF NOT EXISTS public.gpt_api_pricing_inr (
     model_name text,
     input_inr_per_million numeric,
     output_inr_per_million numeric,
@@ -77,14 +54,14 @@ CREATE TABLE public.gpt_api_pricing_inr (
     created_at timestamp with time zone DEFAULT now()
 );
 
-CREATE TABLE public.usd_to_inr_rate (
+CREATE TABLE IF NOT EXISTS public.usd_to_inr_rate (
     as_of date,
     rate numeric,
     source text
 );
 
 -- User management
-CREATE TABLE public.soundflare_users (
+CREATE TABLE IF NOT EXISTS public.soundflare_users (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     email text,
     first_name text,
@@ -98,7 +75,7 @@ CREATE TABLE public.soundflare_users (
 );
 
 -- Projects
-CREATE TABLE public.soundflare_projects (
+CREATE TABLE IF NOT EXISTS public.soundflare_projects (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name varchar,
     description text,
@@ -114,7 +91,7 @@ CREATE TABLE public.soundflare_projects (
 );
 
 -- Agents
-CREATE TABLE public.soundflare_agents (
+CREATE TABLE IF NOT EXISTS public.soundflare_agents (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id uuid,
     name varchar,
@@ -133,7 +110,7 @@ CREATE TABLE public.soundflare_agents (
 );
 
 -- Email project mapping
-CREATE TABLE public.soundflare_email_project_mapping (
+CREATE TABLE IF NOT EXISTS public.soundflare_email_project_mapping (
     id serial PRIMARY KEY,
     email text,
     project_id uuid,
@@ -146,7 +123,7 @@ CREATE TABLE public.soundflare_email_project_mapping (
 );
 
 -- API Keys
-CREATE TABLE public.soundflare_api_keys (
+CREATE TABLE IF NOT EXISTS public.soundflare_api_keys (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id uuid NOT NULL,
     user_clerk_id text NOT NULL,
@@ -161,7 +138,7 @@ CREATE TABLE public.soundflare_api_keys (
 -- CALL LOGGING TABLES
 -- ==============================================
 
-CREATE TABLE public.soundflare_metrics_logs (
+CREATE TABLE IF NOT EXISTS public.soundflare_metrics_logs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id uuid,
     turn_id text,
@@ -188,7 +165,7 @@ CREATE TABLE public.soundflare_metrics_logs (
     tool_calls jsonb
 );
 
-CREATE TABLE public.soundflare_call_logs (
+CREATE TABLE IF NOT EXISTS public.soundflare_call_logs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     call_id varchar,
     agent_id uuid,
@@ -217,7 +194,7 @@ CREATE TABLE public.soundflare_call_logs (
     metrics jsonb DEFAULT '{}'::jsonb
 );
 
-CREATE TABLE public.soundflare_call_logs_backup (
+CREATE TABLE IF NOT EXISTS public.soundflare_call_logs_backup (
     id uuid,
     call_id varchar,
     agent_id uuid,
@@ -246,7 +223,7 @@ CREATE TABLE public.soundflare_call_logs_backup (
     metrics jsonb DEFAULT '{}'::jsonb
 );
 
-CREATE TABLE public.soundflare_call_logs_with_context (
+CREATE TABLE IF NOT EXISTS public.soundflare_call_logs_with_context (
     id uuid,
     call_id varchar,
     agent_id uuid,
@@ -271,7 +248,7 @@ CREATE TABLE public.soundflare_call_logs_with_context (
 -- CALL REVIEWS TABLE (NEW)
 -- ==============================================
 
-CREATE TABLE public.call_reviews (
+CREATE TABLE IF NOT EXISTS public.call_reviews (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     call_log_id uuid NOT NULL,
     agent_id uuid NOT NULL,
@@ -295,7 +272,7 @@ CREATE TABLE public.call_reviews (
 -- AGENT CONFIGURATION TABLES
 -- ==============================================
 
-CREATE TABLE public.soundflare_agent_call_log_views (
+CREATE TABLE IF NOT EXISTS public.soundflare_agent_call_log_views (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id uuid,
     name text,
@@ -305,7 +282,7 @@ CREATE TABLE public.soundflare_agent_call_log_views (
     updated_at timestamp with time zone
 );
 
-CREATE TABLE public.soundflare_custom_totals_configs (
+CREATE TABLE IF NOT EXISTS public.soundflare_custom_totals_configs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id uuid,
     agent_id uuid,
@@ -327,7 +304,7 @@ CREATE TABLE public.soundflare_custom_totals_configs (
 -- DROPOFF MANAGEMENT TABLES
 -- ==============================================
 
-CREATE TABLE public.soundflare_agent_dropoff_settings (
+CREATE TABLE IF NOT EXISTS public.soundflare_agent_dropoff_settings (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id uuid NOT NULL,
     agent_name varchar,
@@ -343,7 +320,7 @@ CREATE TABLE public.soundflare_agent_dropoff_settings (
     updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE TABLE public.soundflare_dropoff_calls (
+CREATE TABLE IF NOT EXISTS public.soundflare_dropoff_calls (
     phone_number varchar PRIMARY KEY,
     agent_id uuid,
     retry_count int4 NOT NULL DEFAULT 0,
@@ -362,7 +339,7 @@ CREATE TABLE public.soundflare_dropoff_calls (
 -- EVALUATION TABLES (NEW)
 -- ==============================================
 
-CREATE TABLE public.soundflare_evaluation_campaigns (
+CREATE TABLE IF NOT EXISTS public.soundflare_evaluation_campaigns (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id uuid NOT NULL,
     agent_id uuid NOT NULL,
@@ -379,7 +356,7 @@ CREATE TABLE public.soundflare_evaluation_campaigns (
     )
 );
 
-CREATE TABLE public.soundflare_evaluation_prompts (
+CREATE TABLE IF NOT EXISTS public.soundflare_evaluation_prompts (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id uuid NOT NULL,
     prompt text NOT NULL,
@@ -392,7 +369,7 @@ CREATE TABLE public.soundflare_evaluation_prompts (
     )
 );
 
-CREATE TABLE public.soundflare_evaluation_results (
+CREATE TABLE IF NOT EXISTS public.soundflare_evaluation_results (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     campaign_id uuid NOT NULL,
     prompt_id uuid NOT NULL,
@@ -410,7 +387,7 @@ CREATE TABLE public.soundflare_evaluation_results (
 -- TRACING TABLES
 -- ==============================================
 
-CREATE TABLE public.soundflare_session_traces (
+CREATE TABLE IF NOT EXISTS public.soundflare_session_traces (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id uuid,
     total_spans int4 DEFAULT 0,
@@ -423,7 +400,7 @@ CREATE TABLE public.soundflare_session_traces (
     trace_key varchar(255)
 );
 
-CREATE TABLE public.soundflare_spans (
+CREATE TABLE IF NOT EXISTS public.soundflare_spans (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     span_id text,
     trace_id text,
@@ -450,7 +427,7 @@ CREATE TABLE public.soundflare_spans (
 -- UTILITY TABLES
 -- ==============================================
 
-CREATE TABLE public.soundflare_reprocess_status (
+CREATE TABLE IF NOT EXISTS public.soundflare_reprocess_status (
     request_id uuid PRIMARY KEY,
     status varchar(20) NOT NULL DEFAULT 'queued',
     from_date timestamptz NOT NULL,
@@ -706,18 +683,21 @@ $$ LANGUAGE plpgsql;
 -- TRIGGERS
 -- ==============================================
 
-CREATE TRIGGER call_reviews_updated_at 
-    BEFORE UPDATE ON public.call_reviews 
+DROP TRIGGER IF EXISTS call_reviews_updated_at ON public.call_reviews;
+CREATE TRIGGER call_reviews_updated_at
+    BEFORE UPDATE ON public.call_reviews
     FOR EACH ROW
     EXECUTE FUNCTION update_call_reviews_updated_at();
 
-CREATE TRIGGER trigger_update_dropoff_settings_updated_at 
-    BEFORE UPDATE ON public.soundflare_agent_dropoff_settings 
+DROP TRIGGER IF EXISTS trigger_update_dropoff_settings_updated_at ON public.soundflare_agent_dropoff_settings;
+CREATE TRIGGER trigger_update_dropoff_settings_updated_at
+    BEFORE UPDATE ON public.soundflare_agent_dropoff_settings
     FOR EACH ROW
     EXECUTE FUNCTION update_dropoff_settings_updated_at();
 
-CREATE TRIGGER trigger_update_dropoff_calls_updated_at 
-    BEFORE UPDATE ON public.soundflare_dropoff_calls 
+DROP TRIGGER IF EXISTS trigger_update_dropoff_calls_updated_at ON public.soundflare_dropoff_calls;
+CREATE TRIGGER trigger_update_dropoff_calls_updated_at
+    BEFORE UPDATE ON public.soundflare_dropoff_calls
     FOR EACH ROW
     EXECUTE FUNCTION update_dropoff_calls_updated_at();
 
@@ -805,7 +785,7 @@ SELECT
 FROM soundflare_call_logs
 GROUP BY agent_id, DATE(created_at);
 
-CREATE UNIQUE INDEX call_summary_agent_date_idx
+CREATE UNIQUE INDEX IF NOT EXISTS call_summary_agent_date_idx
   ON call_summary_materialized (agent_id, call_date);
 
 -- ==============================================
@@ -1156,18 +1136,23 @@ $$;
 -- ROW LEVEL SECURITY POLICIES
 -- ==============================================
 
+DROP POLICY IF EXISTS "Allow all operations on session traces" ON public.soundflare_session_traces;
 CREATE POLICY "Allow all operations on session traces" ON public.soundflare_session_traces
     FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow all operations on spans" ON public.soundflare_spans;
 CREATE POLICY "Allow all operations on spans" ON public.soundflare_spans
     FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow all operations on custom totals configs" ON public.soundflare_custom_totals_configs;
 CREATE POLICY "Allow all operations on custom totals configs" ON public.soundflare_custom_totals_configs
     FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow all operations on call logs backup" ON public.soundflare_call_logs_backup;
 CREATE POLICY "Allow all operations on call logs backup" ON public.soundflare_call_logs_backup
     FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow all operations on call logs with context" ON public.soundflare_call_logs_with_context;
 CREATE POLICY "Allow all operations on call logs with context" ON public.soundflare_call_logs_with_context
     FOR ALL USING (true) WITH CHECK (true);
 
@@ -1203,6 +1188,7 @@ COMMENT ON COLUMN public.call_reviews.has_wrong_outputs IS 'Whether the agent pr
 -- These roles are used by PostgREST based on JWT claims
 -- anon: for unauthenticated requests
 -- authenticated: for authenticated requests
+-- service_role: for server-side operations (bypasses RLS)
 
 -- Create roles if they don't exist
 DO $$
@@ -1213,24 +1199,31 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
         CREATE ROLE authenticated NOLOGIN;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        CREATE ROLE service_role NOLOGIN;
+    END IF;
 END
 $$;
 
 -- Grant usage on schema
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
 -- Grant select on all tables to anon (read-only for unauthenticated)
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 
 -- Grant all permissions to authenticated users
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT INSERT ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT UPDATE ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
+-- Grant full permissions to service_role (used by server-side API routes)
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 
 -- Set default privileges for future tables
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;

@@ -1,19 +1,7 @@
 // src/app/api/agents/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth } from '@/lib/auth'
-
-// Helper function to create Supabase client (lazy initialization)
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
 
 // GET method to fetch agent details
 export async function GET(
@@ -21,11 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getSupabaseClient()
     const { id: agentId } = await params
 
     // Fetch agent data from database
-    const { data: agent, error } = await supabase
+    const { data: agent, error } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('*')
       .eq('id', agentId)
@@ -81,7 +68,6 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getSupabaseClient()
     const { id: agentId } = await params
     const body = await request.json()
 
@@ -102,7 +88,7 @@ export async function PATCH(
       )
     }
 
-    const { data: agent, error } = await supabase
+    const { data: agent, error } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .update(updates)
       .eq('id', agentId)
@@ -134,7 +120,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getSupabaseClient()
     const { id: agentId } = await params
 
     if (!agentId) {
@@ -154,7 +139,7 @@ export async function DELETE(
     }
 
     // Get agent details before deletion (we need name for backend deletion and project_id for quota update)
-    const { data: agentData, error: agentFetchError } = await supabase
+    const { data: agentData, error: agentFetchError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('name, project_id')
       .eq('id', agentId)
@@ -180,7 +165,7 @@ export async function DELETE(
     // Start cascade deletion process
 
     // 1. Delete call logs for this agent
-    const { error: callLogsError } = await supabase
+    const { error: callLogsError } = await getSupabaseAdmin()
       .from('soundflare_call_logs')
       .delete()
       .eq('agent_id', agentId)
@@ -195,7 +180,7 @@ export async function DELETE(
     console.log('Successfully deleted call logs')
 
     // 2. Delete metrics logs (adjust based on your schema relationships)
-    const { error: metricsError } = await supabase
+    const { error: metricsError } = await getSupabaseAdmin()
       .from('soundflare_metrics_logs')
       .delete()
       .eq('session_id', agentId) // Adjust this field based on your actual schema
@@ -210,7 +195,7 @@ export async function DELETE(
     console.log('Successfully deleted auth tokens')
 
     // 4. Finally, delete the agent itself
-    const { error: agentError } = await supabase
+    const { error: agentError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .delete()
       .eq('id', agentId)
@@ -281,7 +266,7 @@ export async function DELETE(
       console.log('🔄 Updating project agent quota state...')
       
       // Get current project state
-      const { data: projectRow, error: fetchError } = await supabase
+      const { data: projectRow, error: fetchError } = await getSupabaseAdmin()
         .from('soundflare_projects')
         .select('agent')
         .eq('id', projectId)
@@ -306,7 +291,7 @@ export async function DELETE(
 
           console.log('🔍 Updated project state:', JSON.stringify(updatedState, null, 2))
 
-          const { error: updateError } = await supabase
+          const { error: updateError } = await getSupabaseAdmin()
             .from('soundflare_projects')
             .update({ agent: updatedState })
             .eq('id', projectId)

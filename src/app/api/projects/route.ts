@@ -1,14 +1,9 @@
 // app/api/projects/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { auth, currentUser } from '@/lib/auth'
 import crypto from 'crypto'
 import { createProjectApiKey } from '@/lib/api-key-management'
-
-// Create Supabase client for server-side operations (use service role for admin operations)
-const supabaseUrl = process.env.SUPABASE_INTERNAL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 // Generate a secure API token
 function generateApiToken(): string {
@@ -67,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Start a transaction-like approach
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .insert([projectData])
       .select('*')
@@ -100,7 +95,7 @@ export async function POST(request: NextRequest) {
     // Add creator to email_project_mapping as owner
     const userEmail = user.email
     if (userEmail) {
-      const { error: mappingError } = await supabase
+      const { error: mappingError } = await getSupabaseAdmin()
         .from('soundflare_email_project_mapping')
         .insert({
           clerk_id: userId,
@@ -167,7 +162,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch projects linked to user email
-    const { data: projectMappings, error } = await supabase
+    const { data: projectMappings, error } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select(`
         project:soundflare_projects (

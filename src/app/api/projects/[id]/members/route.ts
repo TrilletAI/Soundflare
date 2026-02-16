@@ -1,12 +1,7 @@
 // src/app/api/projects/[id]/members/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth, currentUser } from '@/lib/auth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 function getPermissionsByRole(role: string): Record<string, boolean> {
   const rolePermissions: Record<string, Record<string, boolean>> = {
@@ -49,7 +44,7 @@ export async function POST(
     const userEmail = user?.email
     
     // Check current user access
-    const { data: allMappings } = await supabase
+    const { data: allMappings } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('role, clerk_id, email')
       .eq('project_id', projectId)
@@ -67,7 +62,7 @@ export async function POST(
     }
 
     // ✅ NEW: Check if already added by email (INCLUDING INACTIVE ONES)
-    const { data: existingMapping, error: existingMappingError } = await supabase
+    const { data: existingMapping, error: existingMappingError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('id, is_active, clerk_id')
       .eq('email', email.trim())
@@ -88,7 +83,7 @@ export async function POST(
     if (existingMapping && existingMapping.is_active === false) {
       const permissions = getPermissionsByRole(role)
       
-      const { data: reactivatedMapping, error: reactivateError } = await supabase
+      const { data: reactivatedMapping, error: reactivateError } = await getSupabaseAdmin()
         .from('soundflare_email_project_mapping')
         .update({
           is_active: true,
@@ -114,7 +109,7 @@ export async function POST(
 
     // Continue with normal flow to add new member...
     // Check if user already exists in users table
-    const { data: existingUser, error: existingUserError } = await supabase
+    const { data: existingUser, error: existingUserError } = await getSupabaseAdmin()
       .from('soundflare_users')
       .select('clerk_id')
       .eq('email', email.trim())
@@ -129,7 +124,7 @@ export async function POST(
 
     if (existingUser?.clerk_id) {
       // User exists - add them directly
-      const { data: existingUserProject, error: existingUserProjectError } = await supabase
+      const { data: existingUserProject, error: existingUserProjectError } = await getSupabaseAdmin()
         .from('soundflare_email_project_mapping')
         .select('id')
         .eq('clerk_id', existingUser.clerk_id)
@@ -148,7 +143,7 @@ export async function POST(
         )
       }
 
-      const { data: newMapping, error } = await supabase
+      const { data: newMapping, error } = await getSupabaseAdmin()
         .from('soundflare_email_project_mapping')
         .insert({
           clerk_id: existingUser.clerk_id,
@@ -174,7 +169,7 @@ export async function POST(
       }, { status: 201 })
     } else {
       // Create pending email-based invite
-      const { data: mapping, error } = await supabase
+      const { data: mapping, error } = await getSupabaseAdmin()
         .from('soundflare_email_project_mapping')
         .insert({
           email: email.trim(),
@@ -223,7 +218,7 @@ export async function GET(
     const userEmail = user?.email
 
     // ✅ FIXED: Check if user has ANY access to the project (not just admin)
-    const { data: userAccessMapping, error: accessError } = await supabase
+    const { data: userAccessMapping, error: accessError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('role, clerk_id, email, is_active')
       .eq('project_id', projectId)
@@ -243,7 +238,7 @@ export async function GET(
     // ✅ Everyone can view members, no role restriction here
 
     // ✅ Now fetch ALL mappings (including inactive) for display
-    const { data: allProjectMappings, error: mappingsError } = await supabase
+    const { data: allProjectMappings, error: mappingsError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select('*')
       .eq('project_id', projectId)
@@ -262,7 +257,7 @@ export async function GET(
     if (membersWithClerkId.length > 0) {
       const clerkIds = membersWithClerkId.map((m: any) => m.clerk_id)
       
-      const { data: users, error: usersError } = await supabase
+      const { data: users, error: usersError } = await getSupabaseAdmin()
         .from('soundflare_users')
         .select('*')
         .in('clerk_id', clerkIds)

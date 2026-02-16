@@ -1,10 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 const TABLE_NAME = 'prod_project_prompt_analytics';
 const REINDEX_DELAY = 60; // seconds between each index
@@ -26,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     // Step 1: Check current size
     console.log('📊 Current size:');
-    const { data: beforeSizes, error: beforeError } = await supabase
+    const { data: beforeSizes, error: beforeError } = await getSupabaseAdmin()
       .rpc('check_table_sizes', { table_name: TABLE_NAME });
     
     if (beforeError) {
@@ -44,7 +39,7 @@ export async function GET(req: NextRequest) {
     
     // Try to run VACUUM - it may fail in RPC context, that's okay
     const vacuumStart = Date.now();
-    const { error: vacuumError } = await supabase
+    const { error: vacuumError } = await getSupabaseAdmin()
       .rpc('maintenance_vacuum_table', { table_name: TABLE_NAME });
     
     if (vacuumError) {
@@ -63,7 +58,7 @@ export async function GET(req: NextRequest) {
     console.log('   ⏱️ This will take 40-90 minutes\n');
     
     const reindexStart = Date.now();
-    const { data: reindexResult, error: reindexError } = await supabase
+    const { data: reindexResult, error: reindexError } = await getSupabaseAdmin()
       .rpc('maintenance_reindex_throttled', {
         table_name: TABLE_NAME,
         delay_seconds: REINDEX_DELAY
@@ -80,7 +75,7 @@ export async function GET(req: NextRequest) {
 
     // Step 4: Check final size
     console.log('📊 Final size:');
-    const { data: afterSizes, error: afterError } = await supabase
+    const { data: afterSizes, error: afterError } = await getSupabaseAdmin()
       .rpc('check_table_sizes', { table_name: TABLE_NAME });
     
     if (afterError) throw afterError;

@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +28,7 @@ export async function GET(
 
     // First, query the new API keys table
     console.log('Querying new API keys table...')
-    const { data: apiKeys, error } = await supabase
+    const { data: apiKeys, error } = await getSupabaseAdmin()
       .from('soundflare_api_keys')
       .select('*')
       .eq('project_id', projectId)
@@ -63,7 +58,7 @@ export async function GET(
     if (formattedKeys.length === 0) {
       console.log('No new keys found, checking for legacy key...')
       
-      const { data: project, error: projectError } = await supabase
+      const { data: project, error: projectError } = await getSupabaseAdmin()
         .from('soundflare_projects')
         .select('token_hash, created_at, name')
         .eq('id', projectId)

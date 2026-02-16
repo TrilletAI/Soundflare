@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 /**
  * PATCH /api/agents/[id]/auto-review
@@ -23,10 +20,8 @@ export async function PATCH(
       )
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     // Update the agent's auto_review_enabled field
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .update({ auto_review_enabled: enabled })
       .eq('id', id)
@@ -98,9 +93,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('id, name, auto_review_enabled')
       .eq('id', id)

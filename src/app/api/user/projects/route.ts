@@ -1,12 +1,7 @@
 // app/api/user/projects/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { auth, currentUser } from '@/lib/auth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 function mapProject(
   project: any,
@@ -42,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get projects for existing users
-    const { data: userProjects, error: userProjectsError } = await supabase
+    const { data: userProjects, error: userProjectsError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select(`
         id,
@@ -73,7 +68,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get projects for pending email mappings
-    const { data: emailMappings, error: emailMappingError } = await supabase
+    const { data: emailMappings, error: emailMappingError } = await getSupabaseAdmin()
       .from('soundflare_email_project_mapping')
       .select(`
         id,

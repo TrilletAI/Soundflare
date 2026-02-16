@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { createClient } from '@supabase/supabase-js'
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the project's data from soundflare_projects table
-    const { data: projectData, error: projectError } = await supabase
+    const { data: projectData, error: projectError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .select('agent, owner_clerk_id')
       .eq('id', projectId)
@@ -106,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the user owns this project
-    const { data: projectData, error: projectError } = await supabase
+    const { data: projectData, error: projectError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .select('owner_clerk_id')
       .eq('id', body.project_id)
@@ -120,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the agent field in the database
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .update({
         agent: {
@@ -178,7 +173,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verify the user owns this project
-    const { data: projectData, error: projectError } = await supabase
+    const { data: projectData, error: projectError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .select('agent, owner_clerk_id')
       .eq('id', project_id)
@@ -204,7 +199,7 @@ export async function PUT(request: NextRequest) {
     )
 
     // Update the database
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .update({
         agent: {

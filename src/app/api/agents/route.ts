@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { encryptWithTrilletKey } from '@/lib/trillet-evals-crypto'
-
-// Create Supabase client for server-side operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Verify project exists
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .select('id')
       .eq('id', project_id)
@@ -50,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if agent with same name already exists in this project  
-    const { data: existingAgent, error: checkError } = await supabase
+    const { data: existingAgent, error: checkError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('id, name')
       .eq('project_id', project_id)
@@ -105,7 +100,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Insert agent into soundflare_agents
-    const { data: agent, error: agentError } = await supabase
+    const { data: agent, error: agentError } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .insert([agentData])
       .select('*')
@@ -144,7 +139,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { data: agents, error } = await supabase
+    const { data: agents, error } = await getSupabaseAdmin()
       .from('soundflare_agents')
       .select('*')
       .eq('project_id', projectId)

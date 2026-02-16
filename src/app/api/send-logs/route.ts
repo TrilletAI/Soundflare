@@ -1,20 +1,15 @@
 // app/api/send-logs/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { triggerAIReviewFireAndForget } from '@/utils/fireAndForgetReview';
-
-// Create Supabase client for server-side operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 // Helper function to verify token
 const verifyToken = async (token: string, environment = 'dev') => {
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
 
-    const { data: authToken, error } = await supabase
+    const { data: authToken, error } = await getSupabaseAdmin()
       .from('soundflare_projects')
       .select('*')
       .eq('token_hash', tokenHash)
@@ -141,7 +136,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert log into Supabase
-    const { data: insertedLog, error: insertError } = await supabase
+    const { data: insertedLog, error: insertError } = await getSupabaseAdmin()
       .from('soundflare_call_logs')
       .insert(logData)
       .select()
@@ -178,7 +173,7 @@ export async function POST(request: NextRequest) {
       }))
  
       // Insert all conversation turns to Supabase
-      const { error: turnsError } = await supabase
+      const { error: turnsError } = await getSupabaseAdmin()
         .from('soundflare_metrics_logs')
         .insert(conversationTurns)
  
@@ -195,7 +190,7 @@ export async function POST(request: NextRequest) {
     try {
       if (insertedLog?.id && agent_id) {
         // Check if auto-review is enabled for this agent
-        const { data: agentData } = await supabase
+        const { data: agentData } = await getSupabaseAdmin()
           .from('soundflare_agents')
           .select('auto_review_enabled')
           .eq('id', agent_id)
@@ -205,7 +200,7 @@ export async function POST(request: NextRequest) {
         
         if (autoReviewEnabled) {
           // Create pending review record for tracking
-          const { error: queueError } = await supabase
+          const { error: queueError } = await getSupabaseAdmin()
             .from('call_reviews')
             .upsert(
               {

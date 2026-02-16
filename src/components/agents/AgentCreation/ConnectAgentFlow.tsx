@@ -68,6 +68,9 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [createdAgentData, setCreatedAgentData] = useState<any>(null)
   const [copiedId, setCopiedId] = useState(false)
+  const [registrationStatus, setRegistrationStatus] = useState<'pending' | 'success' | 'failed'>('pending')
+  const [registrationError, setRegistrationError] = useState<string | null>(null)
+  const [isRetryingRegistration, setIsRetryingRegistration] = useState(false)
 
   // Fetch Agents when Keys are entered
   const handleFetchAgents = async () => {
@@ -164,10 +167,61 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
     }
   }
 
+  // Register the monitoring agent with middleware via server-side route
+  // (server handles API key lookup/decryption — same pattern as create-agent)
+  const registerWithMiddleware = async (agentId: string): Promise<void> => {
+    const selectedAgentData = agents.find((a: TrilletAgent) => a._id === selectedAgent)
+    const pathwayId = selectedAgentData?.pathway
+
+    if (!pathwayId) {
+      throw new Error('Agent does not have an associated pathway. Please ensure the Trillet agent has a pathway configured.')
+    }
+
+    const response = await fetch('/api/agents/trillet/register-soundflare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agentId,
+        projectId,
+        trilletApiKey: apiKey.trim(),
+        trilletWorkspaceId: workspaceId.trim(),
+        pathwayId,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Registration failed (status ${response.status})`)
+    }
+
+    console.log('✅ Monitoring agent registered with middleware successfully')
+  }
+
+  // Retry registration for an already-created agent
+  const handleRetryRegistration = async () => {
+    if (!createdAgentData?.id) return
+
+    setIsRetryingRegistration(true)
+    setRegistrationError(null)
+
+    try {
+      await registerWithMiddleware(createdAgentData.id)
+      setRegistrationStatus('success')
+    } catch (err) {
+      console.error('Retry registration failed:', err)
+      setRegistrationError(err instanceof Error ? err.message : 'Registration failed')
+      setRegistrationStatus('failed')
+    } finally {
+      setIsRetryingRegistration(false)
+    }
+  }
+
   // Trillet Agent Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setRegistrationStatus('pending')
+    setRegistrationError(null)
 
     if (!selectedAgent || !workspaceId || !apiKey) {
       setError('Please select an agent to monitor')
@@ -211,79 +265,21 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
       }
 
       const data = await response.json()
-      
+
       // Register the monitoring agent with middleware
       setCurrentStep('connecting')
       try {
-        // Get the selected agent's pathway ID
-        const selectedAgentData = agents.find(a => a._id === selectedAgent)
-        const pathwayId = selectedAgentData?.pathway
-        
-        if (!pathwayId) {
-          console.error('No pathway ID found for selected agent')
-          throw new Error('Agent does not have an associated pathway')
-        }
-
-        // Fetch the project's API keys
-        const apiKeysResponse = await fetch(`/api/projects/${projectId}/api-keys`)
-        
-        if (!apiKeysResponse.ok) {
-          console.error('Failed to fetch project API keys')
-          throw new Error('Could not retrieve project API key')
-        }
-        
-        const apiKeysData = await apiKeysResponse.json()
-        const firstKey = apiKeysData.keys?.[0]
-        
-        if (!firstKey?.id) {
-          console.error('No API key found for project')
-          throw new Error('Project API key not found')
-        }
-
-        // Decrypt the API key
-        const decryptResponse = await fetch(`/api/projects/${projectId}/api-keys/${firstKey.id}/decrypt`, {
-          method: 'POST'
-        })
-
-        if (!decryptResponse.ok) {
-          console.error('Failed to decrypt project API key')
-          throw new Error('Could not decrypt project API key')
-        }
-
-        const decryptData = await decryptResponse.json()
-        const decryptedApiKey = decryptData.full_key
-
-        if (!decryptedApiKey) {
-          console.error('Decrypted API key is empty')
-          throw new Error('Decrypted API key not found')
-        }
-
-        const middlewareUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-        const registerResponse = await fetch(`${middlewareUrl}/v1/api/call-flows/register-soundflare/${pathwayId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey.trim(),
-            'x-workspace-id': workspaceId.trim(),
-          },
-          body: JSON.stringify({
-            soundflareAgentId: data.id,
-            soundflareApiKey: decryptedApiKey
-          }),
-        })
-
-        if (registerResponse.ok) {
-          console.log('✅ Monitoring agent registered with middleware successfully')
-        } else {
-          console.error('Failed to register monitoring agent with middleware')
-        }
-      } catch (error_) {
-        console.error('Error registering with middleware:', error_)
+        await registerWithMiddleware(data.id)
+        setRegistrationStatus('success')
+      } catch (regError) {
+        console.error('Middleware registration failed:', regError)
+        setRegistrationStatus('failed')
+        setRegistrationError(regError instanceof Error ? regError.message : 'Registration failed')
       }
-      
+
       setCreatedAgentData(data)
       setCurrentStep('success')
-      
+
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to setup monitoring'
       setError(errorMessage)
@@ -396,15 +392,49 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
             )}
           </div>
 
+          {/* Registration status warning */}
+          {registrationStatus === 'failed' && (
+            <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
+                <p className="font-medium mb-1">Middleware registration failed</p>
+                <p className="text-xs mb-2">{registrationError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetryRegistration}
+                  disabled={isRetryingRegistration}
+                  className="h-7 text-xs border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                >
+                  {isRetryingRegistration ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                      Retrying...
+                    </>
+                  ) : (
+                    'Retry Registration'
+                  )}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {registrationStatus === 'success' && (
+            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+              <CheckCircle className="w-4 h-4" />
+              <span>Middleware registration successful</span>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
-            <Button 
+            <Button
               variant="outline"
               onClick={onClose}
               className="flex-1 h-10 text-gray-700 dark:text-gray-300 border-neutral-300 dark:border-neutral-600 hover:bg-gray-50 dark:hover:bg-neutral-800"
             >
               Monitor Another
             </Button>
-            <Button 
+            <Button
               onClick={handleFinish}
               className="flex-1 h-10 bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700 text-white font-medium"
             >
