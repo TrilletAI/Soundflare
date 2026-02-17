@@ -467,7 +467,7 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
       </DialogHeader>
 
       {/* Tabs for Agent Platform */}
-      <div className="px-6 pt-4">
+      <div className="px-6 pt-4 overflow-y-auto">
         <div className="space-y-2">
           <div className="block text-sm font-medium text-gray-900 dark:text-gray-100">
             Agent Platform
