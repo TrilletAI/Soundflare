@@ -1,6 +1,6 @@
 # SoundFlare
 
-SoundFlare is an open-source observability and validation platform designed primarily for **Trillet AI** integration and **LiveKit** compatible Voice AI agents. It acts as a "flight recorder" for your voice assistants, providing real-time monitoring, automated evaluation, and deep analysis to ensure reliable and accurate voice experiences.
+SoundFlare is an open-source observability and validation platform designed primarily for **[Trillet AI](https://trillet.ai)** integration and **LiveKit** compatible Voice AI agents. It acts as a "flight recorder" for your voice assistants, providing real-time monitoring, automated evaluation, and deep analysis to ensure reliable and accurate voice experiences.
 
 ## 🚀 Key Features
 
@@ -131,7 +131,7 @@ If you see network errors in the browser console, ensure you are accessing the d
 
 ## 🔌 Integrating Your Agent
 
-Connect your Python-based LiveKit/Trillet agent using the SoundFlare SDK.
+Connect your Python-based LiveKit/Trillet agent using the [SoundFlare SDK](https://github.com/TrilletAI/soundflare-sdk).
 
 ### 1. Install the SDK
 > **Coming Soon**: The `soundflare` pip package is being prepared for release.
