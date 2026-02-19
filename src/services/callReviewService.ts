@@ -10,9 +10,9 @@ import path from 'path'
  * Uses Google Gemini Flash for fast, cost-effective analysis
  */
 export class CallReviewService {
-  private static GOOGLE_PROJECT_ID = 'trilletai'
-  private static GOOGLE_LOCATION = 'us-central1'
-  private static MODEL = 'gemini-2.5-flash'
+  private static GOOGLE_PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT_ID || 'trilletai'
+  private static GOOGLE_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+  private static MODEL = process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.5-flash'
   private static CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(process.cwd(), 'src/credentials/google-credentials.json')
   private static SYSTEM_PROMPT = `# Call Log Validation System Prompt
 
