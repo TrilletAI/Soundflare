@@ -89,7 +89,28 @@ cp .env.example .env
 - `SUPABASE_SERVICE_ROLE_KEY`: Your managed Supabase Service Role Key
 
 **Optional for AI Features:**
-- `OPENAI_API_KEY`: For AI-powered transcript analysis and call reviews
+- `OPENAI_API_KEY`: For AI-powered transcript analysis
+
+**Optional for AI Call Reviews (Vertex AI / Gemini):**
+
+The AI Call Review feature uses Google Gemini via Vertex AI to automatically detect hallucinations, wrong actions, and API failures in your call logs. To enable it:
+
+1. Create a [Google Cloud project](https://console.cloud.google.com/) and enable the **Vertex AI API**
+2. Create a **service account** with the `Vertex AI User` role
+3. Download the service account JSON key file
+4. Place it at `src/credentials/google-credentials.json` **or** set the `GOOGLE_APPLICATION_CREDENTIALS` env var to its absolute path
+
+```bash
+# Required
+GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-credentials.json
+
+# Optional (defaults shown)
+GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_GEMINI_MODEL=gemini-2.5-flash
+```
+
+> **Note**: The `src/credentials/` directory is git-ignored. Never commit credential files to the repository.
 
 ### Important Notes
 
