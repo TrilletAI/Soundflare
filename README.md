@@ -98,14 +98,32 @@ The AI Call Review feature uses Google Gemini via Vertex AI to automatically det
 1. Create a [Google Cloud project](https://console.cloud.google.com/) and enable the **Vertex AI API**
 2. Create a **service account** with the `Vertex AI User` role
 3. Download the service account JSON key file
-4. Place it at `src/credentials/google-credentials.json` **or** set the `GOOGLE_APPLICATION_CREDENTIALS` env var to its absolute path
+4. Provide credentials using **one** of the two options below:
+
+**Option A — Vercel / Serverless (recommended for hosting):**
+
+Base64-encode the JSON key and set it as an env var. This avoids needing a file on disk.
 
 ```bash
-# Required
-GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-credentials.json
+# Generate the base64 string:
+cat your-credentials.json | base64 -w 0
 
-# Optional (defaults shown)
+# Then set in Vercel / .env:
+GOOGLE_CREDENTIALS_JSON=eyJ0eXBlIjoic2VydmljZV9hY2NvdW50Ii...
+GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+```
+
+**Option B — File-based (local dev / VMs):**
+
+Place the key file at `src/credentials/google-credentials.json`, or point to it with an env var:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-credentials.json
+GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+```
+
+**Optional overrides (defaults shown):**
+```bash
 GOOGLE_CLOUD_LOCATION=us-central1
 GOOGLE_GEMINI_MODEL=gemini-2.5-flash
 ```

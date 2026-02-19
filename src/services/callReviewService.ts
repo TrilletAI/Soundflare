@@ -14,6 +14,21 @@ export class CallReviewService {
   private static GOOGLE_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
   private static MODEL = process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.5-flash'
   private static CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(process.cwd(), 'src/credentials/google-credentials.json')
+
+  /**
+   * Parse credentials from GOOGLE_CREDENTIALS_JSON env var (base64-encoded).
+   * Falls back to file-based credentials via CREDENTIALS_PATH.
+   */
+  private static getCredentialsFromEnv(): object | null {
+    const encoded = process.env.GOOGLE_CREDENTIALS_JSON
+    if (!encoded) return null
+    try {
+      const decoded = Buffer.from(encoded, 'base64').toString('utf-8')
+      return JSON.parse(decoded)
+    } catch {
+      return null
+    }
+  }
   private static SYSTEM_PROMPT = `# Call Log Validation System Prompt
 
 You are a call log validator. Your role is to analyze logs containing transcripts and API calls to identify errors and inconsistencies.
@@ -393,10 +408,10 @@ Begin your analysis.`
    * Get Google Cloud access token using service account
    */
   private static async getAccessToken(): Promise<string> {
-    const auth = new GoogleAuth({
-      keyFile: this.CREDENTIALS_PATH,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    })
+    const credentials = this.getCredentialsFromEnv()
+    const auth = credentials
+      ? new GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/cloud-platform'] })
+      : new GoogleAuth({ keyFile: this.CREDENTIALS_PATH, scopes: ['https://www.googleapis.com/auth/cloud-platform'] })
 
     const client = await auth.getClient()
     const accessToken = await client.getAccessToken()
