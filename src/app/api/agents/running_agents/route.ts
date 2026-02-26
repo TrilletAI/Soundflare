@@ -48,10 +48,10 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(data)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Running agents proxy error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch running agents', details: error.message },
+      { error: 'Failed to fetch running agents', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

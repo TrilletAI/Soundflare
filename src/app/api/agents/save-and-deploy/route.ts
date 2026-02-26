@@ -130,9 +130,10 @@ export async function POST(request: NextRequest) {
       data: result
     })
     
-  } catch (error: any) {    
+  } catch (error) {
+    console.error('Save and deploy error:', error)
     return NextResponse.json(
-      { message: 'Failed to save and deploy agent', error: error.message },
+      { message: 'Failed to save and deploy agent', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

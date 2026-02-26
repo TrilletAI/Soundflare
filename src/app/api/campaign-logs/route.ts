@@ -312,7 +312,7 @@ export async function GET(request: NextRequest) {
 
     return createSuccessResponse(response)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching campaign logs:', error)
     return createErrorResponse('Failed to fetch campaign logs')
   }
@@ -433,7 +433,7 @@ export async function POST(request: NextRequest) {
 
     return createSuccessResponse(response)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error filtering campaign logs:', error)
     return createErrorResponse('Failed to filter campaign logs')
   }
@@ -535,7 +535,7 @@ export async function DELETE(request: NextRequest) {
       projectId
     })
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error deleting campaign logs:', error)
     return createErrorResponse('Failed to delete campaign logs')
   }

@@ -128,19 +128,19 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(data)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Dispatch call proxy error:', error)
-    
-    // Handle different types of errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+
+    // Handle fetch connection errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
       return NextResponse.json(
         { error: 'Unable to connect to voice agent service' },
         { status: 503 }
       )
     }
-    
+
     return NextResponse.json(
-      { error: 'Failed to dispatch call', details: error.message },
+      { error: 'Failed to dispatch call', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

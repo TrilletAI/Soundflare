@@ -105,15 +105,15 @@ export async function GET(req: NextRequest) {
       totalDurationMinutes: totalDuration
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error:', error);
     const duration = ((Date.now() - startTime) / 60000).toFixed(1);
-    
+
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
-        code: error.code,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: error instanceof Error && 'code' in error ? (error as any).code : undefined,
         durationMinutes: duration
       },
       { status: 500 }

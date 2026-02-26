@@ -44,13 +44,13 @@ export async function GET(request: NextRequest) {
       headers
     })
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Audio Download Error:', error)
-    
-    if (error.code === 'NoSuchKey') {
+
+    if (error instanceof Error && 'code' in error && (error as any).code === 'NoSuchKey') {
       return NextResponse.json({ error: 'Audio file not found' }, { status: 404 })
     }
-    
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

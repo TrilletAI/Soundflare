@@ -37,10 +37,10 @@ export async function GET(
     }
 
     return NextResponse.json({ data })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in GET drop-off settings:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
@@ -174,10 +174,10 @@ export async function POST(
       success: true, 
       data: result 
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in POST drop-off settings:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
@@ -213,10 +213,10 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in DELETE drop-off settings:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

@@ -13,9 +13,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  try {
-    const jwtSecret = process.env.JWT_SECRET || "default-jwt-secret-change-in-production";
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    console.error('JWT_SECRET environment variable is not configured');
+    return NextResponse.json(
+      { valid: false, error: "Server configuration error" },
+      { status: 500 }
+    );
+  }
 
+  try {
     // Decode and verify the token
     const payload = jwt.verify(token, jwtSecret) as any;
 
@@ -35,15 +42,15 @@ export async function GET(request: NextRequest) {
       agent_info: payload.agent_info || {},
       expires_at: new Date(payload.exp * 1000).toISOString(),
     });
-  } catch (err: any) {
-    if (err.name === "TokenExpiredError") {
+  } catch (err) {
+    if (err instanceof Error && err.name === "TokenExpiredError") {
       return NextResponse.json(
         { valid: false, error: "Token has expired" },
         { status: 401 }
       );
     }
     return NextResponse.json(
-      { valid: false, error: `Invalid token: ${err.message}` },
+      { valid: false, error: `Invalid token: ${err instanceof Error ? err.message : 'Unknown error'}` },
       { status: 401 }
     );
   }

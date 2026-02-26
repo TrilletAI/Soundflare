@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
     return NextResponse.json(data)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('List agents error:', error)
     return NextResponse.json(
-      { error: 'Failed to list agents', details: error.message },
+      { error: 'Failed to list agents', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

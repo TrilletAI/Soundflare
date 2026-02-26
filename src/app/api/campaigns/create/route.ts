@@ -1,5 +1,6 @@
 // app/api/campaigns/create/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { requireEnv, getErrorMessage } from '@/lib/api-utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +24,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL_CAMPAIGN
+    const baseUrl = requireEnv('NEXT_PUBLIC_API_BASE_URL_CAMPAIGN')
+    if (baseUrl instanceof NextResponse) return baseUrl
     const apiUrl = `${baseUrl}/api/v1/campaigns/upload-v2`
 
     const response = await fetch(apiUrl, {
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Create campaign error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to create campaign', details: getErrorMessage(error) },
       { status: 500 }
     )
   }
