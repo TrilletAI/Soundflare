@@ -1,5 +1,6 @@
 // app/api/campaigns/list/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { requireEnv, getErrorMessage } from '@/lib/api-utils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +15,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL_CAMPAIGN
+    const baseUrl = requireEnv('NEXT_PUBLIC_API_BASE_URL_CAMPAIGN')
+    if (baseUrl instanceof NextResponse) return baseUrl
     const apiUrl = `${baseUrl}/api/v1/projects/${projectId}/campaigns?limit=${limit}`
 
     const response = await fetch(apiUrl, {
@@ -37,7 +39,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('List campaigns error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to list campaigns', details: getErrorMessage(error) },
       { status: 500 }
     )
   }

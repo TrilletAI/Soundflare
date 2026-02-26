@@ -65,10 +65,10 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(data)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Start agent proxy error:', error)
     return NextResponse.json(
-      { error: 'Failed to start agent', details: error.message },
+      { error: 'Failed to start agent', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

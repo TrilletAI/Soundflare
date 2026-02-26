@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
       return new Response(await response.blob(), {
         headers: { 'Content-Type': 'audio/wav' }
       })
-    } catch (error: any) {
+    } catch (error) {
       console.error('Sarvam preview error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
     }
   }

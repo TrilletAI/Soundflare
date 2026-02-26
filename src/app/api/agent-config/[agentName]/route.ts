@@ -43,9 +43,10 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json(data, { status: 200 })
-  } catch (err: any) {
+  } catch (err) {
+    console.error('Unexpected error fetching agent config:', err)
     return NextResponse.json(
-      { message: "Unexpected error fetching agent config", error: err?.message },
+      { message: "Unexpected error fetching agent config", error: err instanceof Error ? err.message : 'Unknown error' },
       { status: 500 },
     )
   }

@@ -33,10 +33,10 @@ export async function DELETE(
     const data = await response.json()
     return NextResponse.json(data)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Delete dispatch rule error:', error)
     return NextResponse.json(
-      { error: 'Failed to delete dispatch rule', details: error.message },
+      { error: 'Failed to delete dispatch rule', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

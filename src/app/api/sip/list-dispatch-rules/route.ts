@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
     return NextResponse.json({ dispatch_rules: data.dispatch_rule_numbers })
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('List dispatch rules error:', error)
     return NextResponse.json(
-      { error: 'Failed to list dispatch rules', details: error.message },
+      { error: 'Failed to list dispatch rules', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
