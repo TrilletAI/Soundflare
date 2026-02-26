@@ -1,19 +1,12 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, CheckCircle, Bot, ArrowRight, Copy, AlertCircle, Activity, Key } from 'lucide-react'
+import { Loader2, CheckCircle, Bot, ArrowRight, Copy, AlertCircle, Activity, Key, Search } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import Image from 'next/image'
 
@@ -71,6 +64,18 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
   const [registrationStatus, setRegistrationStatus] = useState<'pending' | 'success' | 'failed'>('pending')
   const [registrationError, setRegistrationError] = useState<string | null>(null)
   const [isRetryingRegistration, setIsRetryingRegistration] = useState(false)
+  const [agentSearch, setAgentSearch] = useState('')
+  const configSectionRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to config fields when an agent is selected
+  useEffect(() => {
+    if (selectedAgent && configSectionRef.current) {
+      setTimeout(() => {
+        configSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }, 100)
+    }
+  }, [selectedAgent])
 
   // Fetch Agents when Keys are entered
   const handleFetchAgents = async () => {
@@ -466,8 +471,8 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
         </div>
       </DialogHeader>
 
-      {/* Tabs for Agent Platform */}
-      <div className="px-6 pt-4">
+      {/* Scrollable content area */}
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-6 pt-4 pb-4">
         <div className="space-y-2">
           <div className="block text-sm font-medium text-gray-900 dark:text-gray-100">
             Agent Platform
@@ -597,24 +602,49 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
                   <div className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                     2. Select Agent to Monitor
                   </div>
-                  <Select value={selectedAgent} onValueChange={handleAgentChange}>
-                    <SelectTrigger className="w-full bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700">
-                      <SelectValue placeholder="Select an agent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {agents.map((agent) => (
-                        <SelectItem key={agent._id} value={agent._id}>
-                          {agent.name} {agent.model ? `(${agent.model})` : ''}
-                        </SelectItem>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search agents..."
+                      value={agentSearch}
+                      onChange={(e) => setAgentSearch(e.target.value)}
+                      className="pl-9 h-10 text-sm border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded-lg"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+                    {agents
+                      .filter(a => a.name.toLowerCase().includes(agentSearch.toLowerCase()))
+                      .map((agent) => (
+                        <button
+                          key={agent._id}
+                          type="button"
+                          onClick={() => handleAgentChange(agent._id)}
+                          className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 ${
+                            selectedAgent === agent._id
+                              ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
+                              : 'text-gray-900 dark:text-gray-100'
+                          }`}
+                        >
+                          <span className="truncate">
+                            {agent.name} {agent.model ? `(${agent.model})` : ''}
+                          </span>
+                          <span className="ml-2 text-xs font-mono text-gray-400 dark:text-gray-500 shrink-0">
+                            ...{agent._id.slice(-4)}
+                          </span>
+                        </button>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    {agents.filter(a => a.name.toLowerCase().includes(agentSearch.toLowerCase())).length === 0 && (
+                      <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                        No agents match your search
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* Step 3: Configuration */}
               {selectedAgent && (
-                <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 animate-in slide-in-from-top-2 fade-in duration-300">
+                <div ref={configSectionRef} className="space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 animate-in slide-in-from-top-2 fade-in duration-300">
                   <div className="space-y-2">
                     <label htmlFor="trillet-label" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                       Monitoring Label
@@ -657,7 +687,7 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
       </div>
 
       {/* Sticky Footer with Actions */}
-      <div className="flex-shrink-0 px-6 py-4 bg-gray-50/50 dark:bg-neutral-900/50 border-t border-neutral-200 dark:border-neutral-800 mt-6">
+      <div className="flex-shrink-0 px-6 py-4 bg-gray-50/50 dark:bg-neutral-900/50 border-t border-neutral-200 dark:border-neutral-800">
         <div className="flex gap-3">
           <Button 
             type="button" 
