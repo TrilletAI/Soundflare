@@ -28,6 +28,7 @@ interface TrilletAgent {
   name: string;
   model?: string;
   pathway?: string;
+  flowName?: string;
 }
 
 const TrilletLogo = () => (
@@ -613,7 +614,10 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
                   </div>
                   <div className="max-h-48 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
                     {agents
-                      .filter(a => a.name.toLowerCase().includes(agentSearch.toLowerCase()))
+                      .filter(a => {
+                        const search = agentSearch.toLowerCase()
+                        return a.name.toLowerCase().includes(search) || (a.flowName?.toLowerCase().includes(search) ?? false)
+                      })
                       .map((agent) => (
                         <button
                           key={agent._id}
@@ -626,14 +630,17 @@ const ConnectAgentFlow: React.FC<ConnectAgentFlowProps> = ({
                           }`}
                         >
                           <span className="truncate">
-                            {agent.name} {agent.model ? `(${agent.model})` : ''}
+                            {agent.flowName ? `${agent.flowName} - ${agent.name}` : agent.name}
                           </span>
                           <span className="ml-2 text-xs font-mono text-gray-400 dark:text-gray-500 shrink-0">
                             ...{agent._id.slice(-4)}
                           </span>
                         </button>
                       ))}
-                    {agents.filter(a => a.name.toLowerCase().includes(agentSearch.toLowerCase())).length === 0 && (
+                    {agents.filter(a => {
+                        const search = agentSearch.toLowerCase()
+                        return a.name.toLowerCase().includes(search) || (a.flowName?.toLowerCase().includes(search) ?? false)
+                      }).length === 0 && (
                       <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
                         No agents match your search
                       </div>
