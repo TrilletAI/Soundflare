@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const TRILLET_API_URL = process.env.TRILLET_API_URL || 'http://localhost:3000';
+import { requireEnv, getErrorMessage } from '@/lib/api-utils';
 
 export async function GET(req: NextRequest) {
   try {
+    const TRILLET_API_URL = requireEnv('TRILLET_API_URL');
+    if (TRILLET_API_URL instanceof NextResponse) return TRILLET_API_URL;
+
     const apiKey = req.headers.get('x-api-key');
     const workspaceId = req.headers.get('x-workspace-id');
 
@@ -32,6 +34,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error proxying to Trillet:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch agents from Trillet', details: getErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }

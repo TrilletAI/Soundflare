@@ -80,15 +80,19 @@ export async function POST(request: NextRequest) {
 
     // If it's a Trillet agent, encrypt the API key
     if (agent_type === 'trillet' && configuration?.trilletApiKey) {
+      if (!process.env.TRILLET_EVALS_MASTER_KEY) {
+        return NextResponse.json(
+          { error: 'Server configuration error: TRILLET_EVALS_MASTER_KEY is not set. Please contact your administrator.' },
+          { status: 503 }
+        );
+      }
       try {
         const encryptedKey = encryptWithTrilletKey(configuration.trilletApiKey);
-        // Replace plain text key with encrypted key in configuration
         agentData.configuration.trilletApiKey = encryptedKey;
-        console.log('🔐 Trillet API key encrypted securely');
       } catch (error) {
-        console.error('❌ Error encrypting Trillet key:', error);
+        console.error('Error encrypting Trillet key:', error);
         return NextResponse.json(
-          { error: 'Failed to encrypt API key' },
+          { error: 'Failed to encrypt API key', details: error instanceof Error ? error.message : 'Unknown error' },
           { status: 500 }
         );
       }

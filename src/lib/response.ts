@@ -1,21 +1,28 @@
-import { NextApiResponse } from 'next';
-import { ApiResponse } from '../types/logs';
+import { NextResponse } from 'next/server'
+import { ApiResponse } from '../types/logs'
 
-export const createResponse = <T>(statusCode: number, data: T, error: string | null = null): { status: number; json: ApiResponse<T> } => {
-  const response: ApiResponse<T> = {
-    success: statusCode >= 200 && statusCode < 300,
-    data: error ? null : data,
-    error: error,
-    timestamp: new Date().toISOString()
-  };
+/**
+ * Create a standardized JSON success response (App Router).
+ */
+export function createSuccessResponse<T>(data: T, status = 200): NextResponse {
+  const body: ApiResponse<T> = {
+    success: true,
+    data,
+    error: null,
+    timestamp: new Date().toISOString(),
+  }
+  return NextResponse.json(body, { status })
+}
 
-  return {
-    status: statusCode,
-    json: response
-  };
-};
-
-export const sendResponse = <T>(res: NextApiResponse, statusCode: number, data: T, error: string | null = null): void => {
-  const response = createResponse(statusCode, data, error);
-  res.status(response.status).json(response.json);
-};
+/**
+ * Create a standardized JSON error response (App Router).
+ */
+export function createErrorResponse(error: string, status = 500): NextResponse {
+  const body: ApiResponse<null> = {
+    success: false,
+    data: null,
+    error,
+    timestamp: new Date().toISOString(),
+  }
+  return NextResponse.json(body, { status })
+}

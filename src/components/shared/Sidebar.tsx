@@ -9,12 +9,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { 
+import {
   ArrowLeft,
   Activity,
   Bot,
-  BarChart3, 
-  Settings, 
+  BarChart3,
+  Settings,
   Key,
   Users,
   Crown,
@@ -40,7 +40,8 @@ import {
   Calendar,
   X,
   PanelRightOpen,
-  PanelRightClose
+  PanelRightClose,
+  ArrowUpRight
 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -160,6 +161,30 @@ export default function Sidebar({
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false)
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<{
+    latestVersion: string
+    releaseUrl: string
+  } | null>(null)
+
+  // Check for updates on mount
+  useEffect(() => {
+    const checkForUpdate = async () => {
+      try {
+        const res = await fetch('/api/version/check')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data.updateAvailable) return
+
+        const dismissedVersion = localStorage.getItem('soundflare-update-dismissed')
+        if (dismissedVersion === data.latestVersion) return
+
+        setUpdateInfo({ latestVersion: data.latestVersion, releaseUrl: data.releaseUrl })
+      } catch {
+        // Silently fail — no banner on error
+      }
+    }
+    checkForUpdate()
+  }, [])
 
   // Hotkey for toggling sidebar (Cmd/Ctrl + B)
   useHotkeys('meta+B', (e) => {
@@ -658,6 +683,52 @@ export default function Sidebar({
               </Link>
             )}
           </div>
+        )}
+
+        {/* Update Banner */}
+        {updateInfo && (!isCollapsed || isMobile) && (
+          <div className="mx-3 mb-2 p-2.5 rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/50">
+            <div className="flex items-start justify-between gap-2">
+              <a
+                href={updateInfo.releaseUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-medium text-orange-700 dark:text-orange-300 hover:underline"
+              >
+                v{updateInfo.latestVersion} available
+                <ArrowUpRight className="w-3 h-3" />
+              </a>
+              <button
+                onClick={() => {
+                  localStorage.setItem('soundflare-update-dismissed', updateInfo.latestVersion)
+                  setUpdateInfo(null)
+                }}
+                className="text-orange-400 hover:text-orange-600 dark:hover:text-orange-200 transition-colors"
+                aria-label="Dismiss update notification"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+        {updateInfo && isCollapsed && !isMobile && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  href={updateInfo.releaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mx-auto mb-2 flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/50"
+                >
+                  <ArrowUpRight className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                </a>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>v{updateInfo.latestVersion} available</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {/* User Section */}

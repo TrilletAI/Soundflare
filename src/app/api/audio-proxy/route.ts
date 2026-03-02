@@ -203,10 +203,10 @@ export async function POST(request: NextRequest) {
       { status: 405 }
     )
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Audio Proxy Error:', error)
-    
-    if (error.name === 'TimeoutError') {
+
+    if (error instanceof Error && error.name === 'TimeoutError') {
       return NextResponse.json(
         { error: 'Request timeout - audio URL not accessible' },
         { status: 408 }
@@ -282,10 +282,10 @@ export async function GET(request: NextRequest) {
       headers
     })
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Audio Proxy GET Error:', error)
-    
-    if (error.name === 'TimeoutError') {
+
+    if (error instanceof Error && error.name === 'TimeoutError') {
       return NextResponse.json(
         { error: 'Request timeout - audio URL not accessible' },
         { status: 408 }
