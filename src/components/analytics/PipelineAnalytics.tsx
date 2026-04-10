@@ -1,7 +1,7 @@
 // components/analytics/PipelineAnalytics.tsx
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Phone,
   Clock,
@@ -14,11 +14,11 @@ import {
   ChartBar,
   CaretDown,
   CaretUp,
+  CaretLeft,
+  CaretRight,
   X,
 } from 'phosphor-react'
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,
@@ -34,7 +34,6 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   usePipelineAnalytics,
-  type PipelineSummary,
   type CallBreakdown,
   type TurnBreakdown,
 } from '@/hooks/usePipelineAnalytics'
@@ -213,9 +212,17 @@ function CallDetailPanel({
   call: CallBreakdown
   onClose: () => void
 }) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-label="Call details">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />
       <div className="relative w-full max-w-lg bg-background shadow-xl overflow-y-auto">
         <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Call Details</h3>
@@ -438,22 +445,32 @@ interface PipelineAnalyticsProps {
 
 export function PipelineAnalytics({ agentId, agentName }: PipelineAnalyticsProps) {
   const [period, setPeriod] = useState('7d')
+  const [callPage, setCallPage] = useState(1)
   const [selectedCall, setSelectedCall] = useState<CallBreakdown | null>(null)
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null)
   const { isMobile } = useMobile()
 
   const { from, to } = useMemo(() => getDateRange(period), [period])
 
+  // Reset page when period changes
+  const handlePeriodChange = useCallback((p: string) => {
+    setPeriod(p)
+    setCallPage(1)
+    setExpandedCallId(null)
+  }, [])
+
   const { data, isLoading, isError } = usePipelineAnalytics({
     agentId,
     from,
     to,
+    page: callPage,
   })
 
   const summary = data?.summary
   const dailyVolumes = data?.daily_volumes || []
   const hourlyLatency = data?.hourly_latency || []
   const calls = data?.calls || []
+  const pagination = data?.pagination
 
   return (
     <div className="space-y-6">
@@ -471,7 +488,7 @@ export function PipelineAnalytics({ agentId, agentName }: PipelineAnalyticsProps
             )}
           </p>
         </div>
-        <PeriodSelector value={period} onChange={setPeriod} />
+        <PeriodSelector value={period} onChange={handlePeriodChange} />
       </div>
 
       {/* Error banner */}
@@ -516,7 +533,7 @@ export function PipelineAnalytics({ agentId, agentName }: PipelineAnalyticsProps
           <KpiCard
             title="Success Rate"
             value={`${summary?.success_rate ?? 0}%`}
-            subtitle={`${summary?.total_calls ? summary.total_calls - Math.round((summary.total_calls * (summary?.success_rate ?? 0)) / 100) : 0} failed`}
+            subtitle={`${summary?.failed_count ?? 0} failed`}
             icon={CheckCircle}
             iconClassName="bg-emerald-500/10 text-emerald-500"
           />
@@ -793,6 +810,44 @@ export function PipelineAnalytics({ agentId, agentName }: PipelineAnalyticsProps
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {pagination && pagination.total_pages > 1 && (
+              <div className="flex items-center justify-between border-t px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  Showing {(pagination.page - 1) * pagination.limit + 1}–
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                  {pagination.total} calls
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    disabled={callPage <= 1}
+                    onClick={() => setCallPage((p) => Math.max(1, p - 1))}
+                  >
+                    <CaretLeft size={14} />
+                  </Button>
+                  <span className="text-xs tabular-nums px-2">
+                    {callPage} / {pagination.total_pages}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    disabled={callPage >= pagination.total_pages}
+                    onClick={() =>
+                      setCallPage((p) =>
+                        Math.min(pagination.total_pages, p + 1)
+                      )
+                    }
+                  >
+                    <CaretRight size={14} />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

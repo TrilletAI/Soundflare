@@ -42,7 +42,11 @@ JOIN public.soundflare_call_logs cl
 WHERE cl.call_started_at IS NOT NULL
 GROUP BY ml.session_id, cl.agent_id, DATE(cl.call_started_at), EXTRACT(HOUR FROM cl.call_started_at);
 
--- 2. Index for fast lookups
+-- 2. Unique index (required for CONCURRENTLY refresh)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_analytics_unique
+    ON public.pipeline_analytics_daily (session_id, call_date, call_hour);
+
+-- 3. Lookup index for fast agent + date queries
 CREATE INDEX IF NOT EXISTS idx_pipeline_analytics_agent_date
     ON public.pipeline_analytics_daily (agent_id, call_date);
 

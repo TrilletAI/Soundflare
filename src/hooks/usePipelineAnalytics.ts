@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query'
 export interface PipelineSummary {
   total_calls: number
   total_minutes: number
+  success_count: number
+  failed_count: number
   avg_latency: number | null
   p95_latency: number | null
   success_rate: number
@@ -14,6 +16,7 @@ export interface PipelineSummary {
   avg_tts_ttfb: number | null
   avg_eou_delay: number | null
   estimated_tts: number | null
+  turn_count: number
 }
 
 export interface DailyVolume {
@@ -49,11 +52,19 @@ export interface CallBreakdown {
   turns: TurnBreakdown[]
 }
 
+export interface Pagination {
+  page: number
+  limit: number
+  total: number
+  total_pages: number
+}
+
 export interface PipelineAnalyticsData {
   summary: PipelineSummary
   daily_volumes: DailyVolume[]
   hourly_latency: HourlyLatency[]
   calls: CallBreakdown[]
+  pagination: Pagination
   date_range: { from: string; to: string }
 }
 
@@ -61,6 +72,8 @@ interface UsePipelineAnalyticsProps {
   agentId: string | undefined
   from: string
   to: string
+  page?: number
+  limit?: number
   enabled?: boolean
 }
 
@@ -68,15 +81,19 @@ export const usePipelineAnalytics = ({
   agentId,
   from,
   to,
+  page = 1,
+  limit = 50,
   enabled = true,
 }: UsePipelineAnalyticsProps) => {
   return useQuery<PipelineAnalyticsData>({
-    queryKey: ['pipeline-analytics', agentId, from, to],
+    queryKey: ['pipeline-analytics', agentId, from, to, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams({
         agent_id: agentId!,
         from,
         to,
+        page: String(page),
+        limit: String(limit),
       })
       const res = await fetch(`/api/analytics/pipeline?${params}`)
       if (!res.ok) {
