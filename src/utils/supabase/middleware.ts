@@ -54,6 +54,8 @@ export async function updateSession(request: NextRequest) {
     '/privacy-policy',
     '/docs',
     '/blog',
+    '/sitemap.xml',
+    '/robots.txt',
     '/api',
     '/auth',
     '/_next',
