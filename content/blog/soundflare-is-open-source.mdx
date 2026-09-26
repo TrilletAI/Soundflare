@@ -1,0 +1,56 @@
+---
+title: SoundFlare is now free and open source
+description: No plans, no per-call pricing, no waitlist. SoundFlare is MIT licensed and you can self-host the whole stack in one command.
+date: 2026-09-26
+author: The SoundFlare team
+tags: [announcement, open source]
+---
+
+When we started SoundFlare, the plan was to sell it as a hosted product with a monthly subscription. We've changed our minds. As of today, SoundFlare is **free and open source under the MIT license**, and the GitHub repo is the product.
+
+No plans, no per-call pricing, no waitlist. Clone it, run it, fork it.
+
+## Why we're doing this
+
+Voice agents fail in ways that are hard to see. An agent says "you're booked for Friday" without ever calling the booking API. It makes up a copay amount. The LLM step quietly takes three seconds and the caller hangs up. You only find out when a customer complains.
+
+Every team building voice AI needs a way to catch this, and we think that tooling should be something you can read, run on your own infrastructure, and bend to fit your stack. Call recordings and transcripts are sensitive data. They shouldn't have to leave your servers just so you can debug them.
+
+## What's in the box
+
+SoundFlare is a complete dashboard for building, testing, and monitoring voice agents, built primarily for [Trillet AI](https://trillet.ai) and [LiveKit](https://livekit.io):
+
+- **AI call reviews.** A Gemini-powered reviewer reads each call and checks the agent's claims against what actually happened, flagging hallucinations, wrong actions, and failed API calls.
+- **Call logs and traces.** Transcripts, recordings, and a span-level waterfall of STT, LLM, tool, and TTS timing for every turn.
+- **Metrics.** Latency, token usage, and cost per call, plus a chart builder for custom totals.
+- **Automated evaluations.** AI-generated callers that stress-test your agent on happy and unhappy paths.
+- **Outbound campaigns.** CSV upload, call windows, and retry rules.
+- **Agent builder and SIP management.** Configure and deploy LiveKit agents, and manage trunks, dispatch rules, and phone numbers.
+- **Voice bug reporting.** Flag issues out loud while testing.
+
+## Run it yourself
+
+The whole stack (dashboard, Postgres, Supabase Auth, and an API gateway) runs under Docker Compose:
+
+```bash
+git clone https://github.com/TrilletAI/Soundflare.git
+cd Soundflare
+./scripts/docker-start.sh
+```
+
+The script generates your keys, starts every service, and prints your login. Open `http://localhost:8000` and you're in. For production, point it at your own Supabase project and deploy to Vercel or any VM. The [README](https://github.com/TrilletAI/Soundflare#readme) walks through both.
+
+Then connect your agent with the [Python SDK](https://github.com/TrilletAI/soundflare-sdk):
+
+```python
+from soundflare import LivekitObserve
+
+soundflare = LivekitObserve(agent_id="YOUR_AGENT_ID", apikey="YOUR_API_KEY")
+session_id = soundflare.start_session(session=session)
+```
+
+## Get involved
+
+SoundFlare gets better with every team that runs it on real traffic. If something breaks, [open an issue](https://github.com/TrilletAI/Soundflare/issues). If you build something useful, send a pull request. And if you just want to talk voice AI, come find us on [Discord](https://discord.gg/hrj7H82WQG).
+
+If SoundFlare saves you a debugging session, a star on [GitHub](https://github.com/TrilletAI/Soundflare) goes a long way.

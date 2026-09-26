@@ -74,12 +74,16 @@ function Header() {
 
             {/* Center - Enhanced Navigation */}
             <nav className="hidden md:flex items-center space-x-6">
-              <Link href="#features" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors relative group">
+              <Link href="/#features" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors relative group">
                 Features
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] group-hover:w-full transition-all duration-300" />
               </Link>
-              <Link href="#self-host" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors relative group">
+              <Link href="/#self-host" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors relative group">
                 Self-host
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] group-hover:w-full transition-all duration-300" />
+              </Link>
+              <Link href="/blog" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors relative group">
+                Blog
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] group-hover:w-full transition-all duration-300" />
               </Link>
               <a href={`${GITHUB_URL}#readme`} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors relative group">

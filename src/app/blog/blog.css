@@ -1,0 +1,134 @@
+/* Long-form article typography for blog posts */
+.sf-prose {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: rgb(255 255 255 / 0.72);
+}
+
+.sf-prose > * + * {
+  margin-top: 1.4em;
+}
+
+.sf-prose h2,
+.sf-prose h3 {
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  scroll-margin-top: 6rem;
+}
+
+.sf-prose h2 {
+  margin-top: 2.6em;
+  font-size: 2rem;
+}
+
+.sf-prose h3 {
+  margin-top: 2em;
+  font-size: 1.4rem;
+}
+
+.sf-prose h2 + *,
+.sf-prose h3 + * {
+  margin-top: 0.8em;
+}
+
+.sf-prose strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.sf-prose a {
+  color: #fff;
+  text-decoration: underline;
+  text-decoration-color: rgb(255 77 0 / 0.6);
+  text-underline-offset: 4px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.sf-prose a:hover {
+  color: #ff7a3d;
+  text-decoration-color: #ff4d00;
+}
+
+.sf-prose ul,
+.sf-prose ol {
+  padding-left: 1.4em;
+}
+
+.sf-prose ul {
+  list-style: none;
+}
+
+.sf-prose ul > li {
+  position: relative;
+}
+
+.sf-prose ul > li::before {
+  content: '';
+  position: absolute;
+  left: -1.1em;
+  top: 0.78em;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 9999px;
+  background: #ff4d00;
+}
+
+.sf-prose ol {
+  list-style: decimal;
+}
+
+.sf-prose li + li {
+  margin-top: 0.6em;
+}
+
+.sf-prose blockquote {
+  border-left: 2px solid #ff4d00;
+  padding-left: 1.2em;
+  color: rgb(255 255 255 / 0.6);
+  font-style: italic;
+}
+
+.sf-prose hr {
+  border-color: rgb(255 255 255 / 0.08);
+  margin: 3em 0;
+}
+
+.sf-prose img {
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+
+/* Inline code */
+.sf-prose :not(pre) > code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  color: #ff9a63;
+  background: rgb(255 77 0 / 0.1);
+  border: 1px solid rgb(255 77 0 / 0.2);
+  border-radius: 0.35rem;
+  padding: 0.1em 0.4em;
+}
+
+/* Code blocks (Shiki output from fumadocs-mdx, dual light/dark theme) */
+.sf-prose pre {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.85rem;
+  line-height: 1.75;
+  background: #0c0c0c !important;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 1rem;
+  padding: 1.25rem 1.4rem;
+  overflow-x: auto;
+}
+
+.sf-prose pre span {
+  color: var(--shiki-dark, inherit) !important;
+}
+
+/* fumadocs wraps code blocks in a figure with its own chrome; keep it plain */
+.sf-prose figure {
+  margin-left: 0;
+  margin-right: 0;
+}
