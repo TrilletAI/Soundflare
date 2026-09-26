@@ -3,7 +3,6 @@
 import {
   ArrowRight,
   ArrowUpRight,
-  BookOpen,
   Bot,
   Bug,
   FlaskConical,
@@ -17,11 +16,12 @@ import {
   Workflow,
 } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
 import { motion, useScroll, useTransform } from "motion/react"
 import React, { useRef } from "react"
 import { cn } from "@/lib/utils"
 import Header from "./landing-header"
+import Footer from "./footer"
+import { LandingStyles } from "./styles"
 import { GITHUB_URL, SDK_GITHUB_URL, useGithubStars } from "./github"
 import { CodeWindow, MetricsMock, MonoLabel, ReviewMock, WaterfallMock, Waveform } from "./visuals"
 
@@ -162,41 +162,7 @@ export default function LandingPage() {
 
   return (
     <>
-      <style jsx global>{`
-        @import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap');
-
-        .soundflare-landing-font {
-          font-family: 'Cabinet Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        .sf-grain {
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        }
-        .sf-grid {
-          background-image:
-            linear-gradient(to right, rgba(255,255,255,0.045) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255,255,255,0.045) 1px, transparent 1px);
-          background-size: 64px 64px;
-          mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 30%, transparent 75%);
-        }
-        @keyframes sf-wave {
-          0%, 100% { transform: scaleY(0.35); }
-          50% { transform: scaleY(1); }
-        }
-        .sf-wave-bar {
-          transform-origin: center;
-          animation-name: sf-wave;
-          animation-iteration-count: infinite;
-          animation-timing-function: ease-in-out;
-        }
-        @keyframes sf-marquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-        .sf-marquee { animation: sf-marquee 40s linear infinite; }
-        @media (prefers-reduced-motion: reduce) {
-          .sf-wave-bar, .sf-marquee { animation: none; }
-        }
-      `}</style>
+      <LandingStyles />
 
       {/* Landing is designed dark-only; the `dark` class scopes the dark theme tokens to this page */}
       <div className="dark soundflare-landing-font relative min-h-screen overflow-x-clip bg-[#070707] text-white selection:bg-[#ff4d00]/40">
@@ -446,81 +412,7 @@ export default function LandingPage() {
           </motion.div>
         </section>
 
-        {/* ───────────── Footer ───────────── */}
-        <footer className="border-t border-white/[0.06] px-5 pb-10 pt-16 sm:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="grid gap-10 md:grid-cols-[2fr_1fr_1fr_1fr]">
-              <div>
-                <div className="flex items-center gap-3">
-                  <Image src="/logo.png" alt="" width={32} height={32} />
-                  <span className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] bg-clip-text text-xl font-bold tracking-tight text-transparent">
-                    SoundFlare
-                  </span>
-                </div>
-                <p className="mt-4 max-w-xs text-sm text-white/45">Free, open-source observability for voice AI agents.</p>
-              </div>
-
-              {[
-                {
-                  heading: "Project",
-                  links: [
-                    { label: "GitHub", href: GITHUB_URL, icon: Github },
-                    { label: "Python SDK", href: SDK_GITHUB_URL },
-                    { label: "Docs", href: `${GITHUB_URL}#readme`, icon: BookOpen },
-                    { label: "Issues", href: `${GITHUB_URL}/issues` },
-                  ],
-                },
-                {
-                  heading: "Community",
-                  links: [
-                    { label: "Discord", href: "https://discord.gg/hrj7H82WQG" },
-                    { label: "Trillet AI", href: "https://trillet.ai" },
-                  ],
-                },
-                {
-                  heading: "Legal",
-                  links: [
-                    { label: "MIT License", href: `${GITHUB_URL}/blob/main/LICENSE` },
-                    { label: "Privacy", href: "/privacy-policy", internal: true },
-                    { label: "Terms", href: "/terms-of-service", internal: true },
-                  ],
-                },
-              ].map(({ heading, links }) => (
-                <div key={heading}>
-                  <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/35">{heading}</h3>
-                  <ul className="mt-4 space-y-2.5 text-sm text-white/60">
-                    {links.map((link) => {
-                      const Icon = "icon" in link ? link.icon : undefined
-                      const content = (
-                        <>
-                          {Icon && <Icon className="h-3.5 w-3.5" />}
-                          {link.label}
-                        </>
-                      )
-                      const cls = "inline-flex items-center gap-1.5 transition-colors hover:text-white"
-                      return (
-                        <li key={link.label}>
-                          {"internal" in link ? (
-                            <Link href={link.href} className={cls}>{content}</Link>
-                          ) : (
-                            <a href={link.href} target="_blank" rel="noopener noreferrer" className={cls}>{content}</a>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-8 font-mono text-xs text-white/35 sm:flex-row">
-              <p>&copy; 2026 Trillet AI · Released under the MIT License</p>
-              <p className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> recording every call
-              </p>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </>
   )
