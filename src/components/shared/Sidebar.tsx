@@ -127,7 +127,7 @@ const PRICING_CONFIGS: Record<string, { showPricingBox: boolean; plan: string; f
     upgradeLink: ''
   },
   'project-reports': {
-    showPricingBox: true,
+    showPricingBox: false,
     plan: 'Pro Plan',
     features: ['Advanced Reports', 'Data Export', 'Custom Dashboards'],
     upgradeText: 'Upgrade to Pro',
