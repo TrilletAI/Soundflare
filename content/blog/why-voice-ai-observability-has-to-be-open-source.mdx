@@ -1,0 +1,82 @@
+---
+title: Why voice AI observability has to be open source
+description: Third-party eval tools can only see what the voice platform sees. Real observability means running inside the customer's own compliance boundary, which means open source.
+date: 2026-09-26
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
+tags: [open source, compliance, observability]
+featured: true
+tldr: "Third-party voice AI eval platforms only see what the voice platform sees, so they miss failures inside the client's own systems. Seeing those requires running observability inside the client's compliance boundary, and the only practical way to do that across many regulated environments is open source. That is why SoundFlare is MIT licensed and self-hosted."
+---
+
+**Who this is for:** engineering leads at voice AI platforms and agencies, compliance and security teams signing off on voice agents, and anyone in healthcare or another regulated industry wondering how to monitor an AI receptionist without handing patient data to one more vendor.
+
+## Three parties, one phone call
+
+Every production voice agent involves at least three parties:
+
+1. **The caller.** A patient, a customer, a lead.
+2. **The voice AI platform.** Trillet, a LiveKit deployment, or something similar. It handles speech-to-text, the LLM, text-to-speech, and the tool calls the agent makes.
+3. **The client.** The clinic, the law firm, the property manager. They own the systems the agent writes to: the practice management system, the EHR, the CRM, the booking calendar.
+
+When a call goes wrong, the question everyone asks is simple: whose fault was it? Did the agent misunderstand? Did the platform drop the request? Or did the client's own system reject, time out, or silently swallow it?
+
+The answer usually lives on the client's side of the line, in a system the voice platform is not allowed to look into.
+
+## What a third-party eval platform can actually see
+
+The typical voice AI evaluation platform plugs into the voice platform. It pulls call logs, transcripts, and recordings through the platform's API, or receives them via webhook. From there it scores calls, runs simulations, and builds dashboards.
+
+Notice what that means. **The eval platform sees exactly what the voice platform sees, and nothing more.** If the platform can't see why the client's booking API failed, neither can the tool downstream of it. From the customer's point of view, the extra layer adds a nicer dashboard over data they could already get, not new visibility.
+
+To be fair to these tools, there is one job they do genuinely well: pre-flight testing. Spinning up simulated callers to throw hundreds of scripted conversations at an agent before launch is valuable, and we recommend doing it. We cover where that approach runs out of road in [what simulated callers can't find](/blog/voice-agent-evaluation-simulated-callers-vs-production). The short version: the edge cases that hurt you in production mostly do not come from agent-to-agent testing. They come from real people and real downstream systems behaving in ways nobody scripted.
+
+## The compliance wall
+
+So why not just give the eval vendor access to the client's systems too? In a regulated industry, because of paperwork, risk, and trust.
+
+Take healthcare. Getting a voice AI platform access to a clinic's EHR or practice management system involves legal review, security questionnaires, and in the US a business associate agreement (BAA). Every new vendor that touches protected health information is another agreement to sign, another security review to pass, another place patient data lives, and another breach surface. Clinics are rightly nervous about this. Patients are too.
+
+Now ask a clinic to extend that access to a third-party evaluation vendor as well, so the vendor can inspect API responses that may contain patient names, dates of birth, and appointment details. You can guess how that meeting goes. We dig into the specifics in [two compliance boxes: a vendor BAA vs observability you control](/blog/hipaa-voice-ai-baa-vs-self-hosted-observability).
+
+The result is a stalemate. The data you need to debug production failures exists, but the people who could interpret it are not allowed to see it.
+
+## Flip the direction
+
+The way out is to stop moving the data to the tool and start moving the tool to the data.
+
+The client already has the data. They have already done the compliance work to store it. Their security team already reviews what runs in their environment. If the observability software runs inside that environment, on their servers, under their controls, then there is no new vendor holding patient data, no new BAA for the monitoring layer, and full visibility into both sides of every call: what the agent said, and what the client's systems actually returned.
+
+That is SoundFlare in one paragraph. It taps directly into open-source voice stacks like LiveKit, and natively into Trillet, and runs on the customer's own infrastructure. It records every turn, every tool call with its request, response, and HTTP status, and every span of latency, then uses an LLM reviewer to flag the calls where the agent's claims did not match reality.
+
+## Why it has to be open source
+
+You could imagine a closed-source, self-hosted product instead. In practice, open source wins for three reasons.
+
+**Security teams can read it.** "Install our binary inside your HIPAA environment" is a hard sell. "Here is the source, audit it" is a much easier one.
+
+**Every environment is different.** One customer needs everything on-prem. Another runs on a specific cloud with a specific BAA. A third wants the call reviewer to use a model running on their own GPUs instead of a cloud API. SoundFlare ships using cloud models by default (Gemini on Vertex AI, in the customer's own Google Cloud project), but because the code is theirs, a team can swap in a locally hosted model and keep transcripts inside their own network entirely. We think of the repo as a skeleton to build on, not a finished box.
+
+**There is no incentive to hoard data.** A hosted eval vendor's business improves when it holds more of your data. An MIT-licensed project running on your servers has no such pull.
+
+## What this looks like in practice
+
+A clinic deploys an AI receptionist on Trillet. The clinic's IT team (or the agency that manages the deployment for them) runs SoundFlare in their own environment. Every call lands there with the transcript, the recording, a span-level trace, and the full request and response of every API call the agent made against the clinic's systems.
+
+When something breaks, nobody has to argue about it. The trace shows whether the agent never called the booking API, called it with the wrong date, or called it correctly and got a timeout back. That last case is more common than you would think, and it is exactly the scenario that bit us in production. We tell that story in [the booking that never was](/blog/silent-api-failure-voice-agent-booking).
+
+If you would rather not run it yourself, [Trillet](https://trillet.ai) is a SOC 2 and ISO 27001 compliant voice AI platform with a refined, actively maintained version of SoundFlare built in. The open-source version stays free, and you can keep using it alongside Trillet or instead of it.
+
+## Frequently asked questions
+
+**Why do SaaS eval tools miss client-side and webhook failures?**
+Because they sit downstream of the voice platform and see only what it exposes. If the client's API times out or returns an error the platform never surfaced, the eval tool has no record of it either.
+
+**Are voice AI evaluation platforms useless, then?**
+No. They are good at pre-flight testing: simulated callers, regression suites, scripted edge cases. They are not a substitute for observability inside the environment where the failures happen.
+
+**Is SoundFlare HIPAA compliant?**
+Compliance is a property of how a system is deployed and operated, not of a codebase. SoundFlare is designed to run inside an environment you have already made compliant, so it inherits your controls instead of adding a new vendor. How you configure it, including which model reviews calls, is up to you.
+
+**Does self-hosted mean no cloud at all?**
+Not necessarily. SoundFlare runs anywhere you can run Docker, including your own cloud account. The point is that it runs in *your* account, under *your* agreements.

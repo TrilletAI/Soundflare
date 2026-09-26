@@ -342,8 +342,9 @@ export default function LandingPage() {
           <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1fr_1.15fr]">
             <div>
               <SectionHeading index="02" label="Self-host" title="Up and running in one command.">
-                A Docker Compose stack with the dashboard, Postgres, Supabase Auth, and an API gateway. Your calls,
-                recordings, and transcripts never leave your infrastructure.
+                A Docker Compose stack with the dashboard, Postgres, Supabase Auth, and an API gateway. Calls, recordings,
+                and transcripts stay inside the compliance boundary you already manage, and AI reviews can run on your own
+                cloud account or a model you host.
               </SectionHeading>
 
               <ol className="-mt-4 space-y-5">

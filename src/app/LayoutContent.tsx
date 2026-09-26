@@ -18,6 +18,12 @@ const noSidebarRoutes = [
   '/onboarding'
 ]
 
+const marketingRoutes = ['/', '/privacy-policy', '/terms-of-service']
+
+function isMarketingRoute(pathname: string): boolean {
+  return marketingRoutes.includes(pathname) || pathname === '/blog' || pathname.startsWith('/blog/')
+}
+
 function shouldShowSidebar(pathname: string): boolean {
   return !noSidebarRoutes.includes(pathname)
 }
@@ -43,6 +49,12 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
       setAgentName(null)
     }
   }, [agents])
+
+  // Public marketing pages render immediately, independent of auth state, so their
+  // content is in the server HTML for search engines and never gets the app sidebar
+  if (isMarketingRoute(pathname)) {
+    return <main>{children}</main>
+  }
 
   return (
     <main>

@@ -1,0 +1,147 @@
+---
+title: "Self-hosted observability for LiveKit voice agents: a step-by-step guide"
+description: Run SoundFlare on your own infrastructure and get traces, transcripts, cost, and AI call reviews for every LiveKit agent call, with OpenTelemetry enabled by one flag.
+date: 2026-09-26
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
+tags: [livekit, tutorial, self-hosted]
+tldr: "Run SoundFlare with one Docker command, pip install soundflare, point the SDK's host_url at your own instance, and wrap your LiveKit AgentSession in three lines. Every call then lands in your own dashboard with transcripts, OpenTelemetry traces, latency and cost metrics, and AI call reviews."
+---
+
+LiveKit gives you an excellent open-source foundation for voice agents. What it doesn't give you out of the box is a place to look when a call in production goes sideways: which turn was slow, which tool call failed, what the agent told the caller, and whether any of it matched reality.
+
+**Who this is for:** Python developers running LiveKit agents who want open-source, self-hosted observability, particularly teams whose call data can't be shipped to a third-party SaaS.
+
+## What you'll need
+
+- Docker and Docker Compose
+- A LiveKit agent built with the Python `livekit-agents` framework
+- Python 3.9 or later
+- About fifteen minutes
+
+## Step 1: Run the SoundFlare stack
+
+Clone the repo and run the start script:
+
+```bash
+git clone https://github.com/TrilletAI/Soundflare.git
+cd Soundflare
+./scripts/docker-start.sh
+```
+
+The script generates fresh JWT keys into `.env.docker`, starts every service (the dashboard, Postgres, Supabase Auth, PostgREST, and a Kong gateway), and prints your login credentials. It also saves them to `.docker-credentials.txt` so you don't have to scroll back.
+
+Open `http://localhost:8000` and sign in.
+
+For production, you'll want SoundFlare on a server your agents can reach, backed by your own Supabase project. The [README](https://github.com/TrilletAI/Soundflare#readme) covers the environment variables. The key point: it runs wherever you run it, inside your own compliance boundary.
+
+## Step 2: Create a project, an agent, and an API key
+
+In the dashboard:
+
+1. Create a project for your deployment.
+2. Add (connect) your agent. Copy its **agent ID**.
+3. Open the project's API key page and generate a **project API key**.
+
+The SDK uses these two values to tag and authenticate the call data it sends.
+
+## Step 3: Install the SDK
+
+```bash
+pip install soundflare
+```
+
+Add your settings to your agent's `.env`:
+
+```bash
+SOUNDFLARE_API_KEY=your_project_api_key
+SOUNDFLARE_HOST_URL=http://localhost:8000/api/send-logs
+```
+
+That host URL matters. It points the SDK at *your* instance's ingest endpoint. Set it explicitly rather than relying on the SDK default. If your agent runs on a different machine, use the address of your SoundFlare server instead of `localhost`.
+
+## Step 4: Wrap your agent session
+
+In your agent's entrypoint, create the observer, start a session when the LiveKit `AgentSession` starts, and export it on shutdown:
+
+```python
+import os
+from dotenv import load_dotenv
+from livekit.agents import AgentSession, JobContext
+from soundflare import LivekitObserve
+
+load_dotenv()
+
+soundflare = LivekitObserve(
+    agent_id="YOUR_AGENT_ID",
+    apikey=os.getenv("SOUNDFLARE_API_KEY"),
+    host_url=os.getenv("SOUNDFLARE_HOST_URL"),
+    enable_otel=True,  # capture OpenTelemetry spans for the trace view
+)
+
+async def entrypoint(ctx: JobContext):
+    session = AgentSession(...)  # your existing STT, LLM, TTS setup
+
+    session_id = soundflare.start_session(session)
+
+    async def export_to_soundflare():
+        await soundflare.export(session_id)
+
+    ctx.add_shutdown_callback(export_to_soundflare)
+
+    await session.start(...)
+```
+
+Three lines of real integration: create the observer, start the session, export on shutdown. The SDK collects the transcript turn by turn, STT, LLM, TTS, and voice activity metrics, usage for cost tracking, and (with `enable_otel=True`) OpenTelemetry spans for the waterfall.
+
+## Step 5: Make a call and read the trace
+
+Place a test call. When it ends, open the agent in the dashboard. You'll find:
+
+- **The transcript,** turn by turn, with the recording alongside when one is available.
+- **A span-level waterfall** for each turn, showing STT, LLM, tool calls, and TTS timing. That's where dead air explains itself. We go deeper in [transcripts aren't observability](/blog/voice-ai-observability-beyond-transcripts).
+- **Latency, token, and cost metrics** per call.
+- **Every tool call** the agent made, with its arguments and the output your tool returned.
+
+## Step 6: Turn on AI call reviews
+
+AI call reviews compare what the agent said with what every API actually returned, and flag API failures, wrong actions, and wrong outputs. They're what catch the calls that *look* successful but aren't, like the one in [the booking that never was](/blog/silent-api-failure-voice-agent-booking).
+
+The reviewer needs an LLM. By default it uses Gemini through Vertex AI in your own Google Cloud project:
+
+```bash
+GOOGLE_CREDENTIALS_JSON=base64-encoded-service-account-json
+GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+```
+
+Then enable auto-review for the agent in the dashboard. New calls are queued for review as they arrive, and results stream into the dashboard live.
+
+**One tip that makes reviews much sharper:** the SDK records whatever your function tools return. If a tool calls an external API, return the HTTP status and the relevant part of the response body rather than a bare "done". Then the reviewer can see that the confirm request came back as a 500 or a timeout, instead of guessing from the conversation.
+
+```python
+@function_tool
+async def confirm_booking(self, reservation_id: str) -> dict:
+    resp = await clinic_api.post(f"/reservations/{reservation_id}/confirm")
+    return {"http_status": resp.status_code, "body": resp.json()}
+```
+
+If transcripts must stay entirely inside your network, you can swap the reviewer for a model you host. That's the advantage of the code being yours.
+
+## Where to go next
+
+- Put SoundFlare behind your own auth and domain, and connect it to your production Supabase.
+- Run automated evaluations with simulated callers before each release, and keep production reviews on for everything after. Here's [how the two fit together](/blog/voice-agent-evaluation-simulated-callers-vs-production).
+- Read the reasoning behind the whole approach in [why voice AI observability has to be open source](/blog/why-voice-ai-observability-has-to-be-open-source).
+
+Not keen to operate this yourself? [Trillet](https://trillet.ai) is a SOC 2 and ISO 27001 compliant voice AI platform with a refined, actively maintained version of SoundFlare built in. You can keep using the open-source version alongside it.
+
+## Frequently asked questions
+
+**Is there open-source, self-hosted observability for LiveKit voice agents?**
+Yes. SoundFlare is MIT licensed, runs under Docker Compose on your own infrastructure, and integrates with LiveKit agents through a Python SDK.
+
+**Does SoundFlare support OpenTelemetry?**
+Yes. Pass `enable_otel=True` to the SDK to capture OpenTelemetry spans, which power the span-level trace view.
+
+**Do I have to use Supabase?**
+SoundFlare is built on Supabase (Postgres, Auth, and PostgREST). The Docker setup runs all of it locally for you; in production you can use a managed or self-hosted Supabase.

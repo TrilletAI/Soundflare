@@ -1,0 +1,79 @@
+---
+title: "\"Task complete\" is lying to you: how to tell if a voice agent call actually worked"
+description: Completion rates and instruction-following scores miss hangups, dead air, and failed side effects. Here is what to measure after "task complete" fails you in production.
+date: 2026-09-26
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
+tags: [evaluation, metrics, hangups]
+tldr: "Task completion only tells you the agent reached the end of its script, not that the call worked. To evaluate a voice agent call, verify the downstream outcome actually happened, check the agent's claims against the API data it received, and look at turn-level latency and silence, which explain most hangups."
+---
+
+Most voice agent dashboards open with a big, reassuring number: task completion rate. Ninety-something percent of calls reached the end of the flow. The agent followed its instructions. Everything is green.
+
+Then a customer forwards you a complaint, and you pull up a call that the dashboard scored as a success. The caller hung up after eight seconds of silence. Or the agent confirmed a booking that never landed. Or it did everything right and the caller still left annoyed, because it took three tries to get their date of birth.
+
+**Who this is for:** voice AI builders and agencies running AI receptionists or outbound agents, especially anyone who has asked some version of "what's the first eval after task-complete?" or "why do callers hang up when the script is correct?"
+
+## Three ways a "successful" call fails
+
+### 1. The side effect didn't happen
+
+The agent said "you're booked." The booking API returned an error, or timed out, or (our personal favorite) succeeded at step one of a two-step flow and failed at step two. The conversation is flawless; the outcome is nothing. We walk through a real case of this in [the booking that never was](/blog/silent-api-failure-voice-agent-booking).
+
+Transcript-based scoring cannot catch this, because the transcript is fine. You need the tool calls, with their responses, next to the transcript.
+
+### 2. The caller left before the finish line
+
+Callers hang up for reasons that never appear in an instruction-following score:
+
+- **Dead air.** The agent calls a slow tool and says nothing for five seconds. On a phone line, five seconds of silence feels like a dropped call.
+- **Latency creep.** Each turn takes a little too long. Nobody complains about any single turn, but the call feels like talking to someone on a satellite link.
+- **Repetition.** The agent asks for the same detail twice because a speech-to-text mistake broke the flow.
+
+A completion metric only counts calls that reach the end. The ones that bail out early are often the ones you most need to look at.
+
+### 3. The agent did the wrong thing, correctly
+
+The agent follows its instructions perfectly and cancels the August 8 appointment. The caller asked about August 7. Every step "succeeded." This is an intent problem hiding behind an execution metric.
+
+## What to measure instead
+
+There is no single replacement number, but there is a short list of signals that, together, tell you whether calls are working.
+
+**Outcome verification.** For every call that should change something (a booking, a cancellation, a CRM update), check that the change happened, using the actual API responses. Flag any call where the agent announced success and the system disagrees.
+
+**Claim checking.** Compare what the agent told the caller against the data it received. If the API offered slots until 4:40 and the agent offered 4:50, that's a wrong output, even though the caller may never notice until they show up.
+
+**Turn-level latency.** Track time to first token and end-to-end response time per turn, not just per call averages. Then look at the slowest turns. They almost always line up with a specific tool call or a specific model.
+
+**Silence and early exits.** Look for long gaps between the caller finishing and the agent speaking, and correlate them with hangups. Most "mysterious" hangups turn out to be dead air during a tool call.
+
+**Instruction violations.** Did the agent cancel without asking for confirmation when its instructions required it? Did it skip a required disclosure? These are scoreable from the transcript and the agent's instructions together.
+
+## How SoundFlare approaches it
+
+We built SoundFlare because we needed these signals for our own agents at Trillet, and we couldn't get them from a transcript-scoring tool.
+
+- **AI call reviews** read each call with the transcript, the agent's instructions, and every API call (request, response, HTTP status) side by side. They flag three things: API failures, wrong actions, and wrong outputs. That covers outcome verification, claim checking, and instruction violations in one pass.
+- **Span-level traces** break every turn into speech-to-text, LLM, tool, and text-to-speech timing, so a five-second silence shows up as a five-second tool span, not a mystery.
+- **Latency, token, and cost metrics** per call and per turn, so you can find the slowest turns rather than staring at averages.
+- **Recordings next to the trace,** so when a number looks odd you can listen to exactly that moment.
+
+It runs on your own infrastructure, which matters as soon as those API responses contain customer or patient data. More on that in [why voice AI observability has to be open source](/blog/why-voice-ai-observability-has-to-be-open-source).
+
+If you'd rather have this managed, [Trillet](https://trillet.ai) includes a refined, actively maintained version of SoundFlare inside its SOC 2 and ISO 27001 compliant voice AI platform. The open-source version stays free either way.
+
+## A practical first step
+
+If you do nothing else this week, do this: pull fifty calls your dashboard marked as successful, and for each one, check whether the thing the caller wanted actually happened in the downstream system. The number you get is your real success rate. It is usually lower than the one on the dashboard, and the difference is your to-do list.
+
+## Frequently asked questions
+
+**How do you evaluate whether a voice agent call "worked"?**
+Check the outcome, not the script. Verify the downstream side effect happened, check the agent's claims against the API data it received, and look at latency and silence for signs the caller had a bad time even if the task technically completed.
+
+**What's the first voice-agent eval to add after task-complete?**
+Outcome verification: for calls that should change something, confirm the change happened using the actual API responses.
+
+**Why do callers hang up on voice AI even when the script is correct?**
+Usually dead air or accumulated latency, often during tool calls. Turn-level traces make the cause visible.

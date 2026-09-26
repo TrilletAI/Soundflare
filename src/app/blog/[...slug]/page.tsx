@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Github } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Github } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import type { MDXContent } from 'mdx/types'
 import { blogSource, formatPostDate, getPost, getPosts } from '@/lib/blog'
@@ -47,10 +47,12 @@ export default async function BlogPostPage({ params }: Params) {
         </div>
 
         <h1 className="mt-5 text-4xl font-extrabold leading-[1.02] tracking-[-0.03em] sm:text-6xl">{post.title}</h1>
-        {post.description && <p className="mt-6 text-xl leading-relaxed text-white/55">{post.description}</p>}
 
         <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-white/[0.08] py-4 font-mono text-xs text-white/45">
-          <span className="text-white/75">{post.author}</span>
+          <span className="text-white/75">
+            {post.author}
+            {post.authorTitle && <span className="text-white/45">, {post.authorTitle}</span>}
+          </span>
           <span className="text-white/20">/</span>
           <time dateTime={post.date.toISOString()}>{formatPostDate(post.date)}</time>
           <span className="text-white/20">/</span>
@@ -59,21 +61,47 @@ export default async function BlogPostPage({ params }: Params) {
       </header>
 
       <div className="sf-prose relative mx-auto mt-12 max-w-3xl">
+        {post.tldr && (
+          <aside aria-label="TL;DR" className="sf-tldr">
+            <p className="sf-tldr-label">TL;DR</p>
+            <p>{post.tldr}</p>
+          </aside>
+        )}
         <MDX components={{ a: MdxLink }} />
       </div>
 
       <footer className="relative mx-auto mt-20 max-w-3xl space-y-6">
-        <div className="overflow-hidden rounded-2xl border border-[#ff4d00]/25 bg-gradient-to-br from-[#ff4d00]/10 to-transparent p-8">
-          <h2 className="text-2xl font-bold tracking-tight">SoundFlare is free and open source</h2>
-          <p className="mt-2 text-white/55">Self-host the whole stack in one command, or star the repo to follow along.</p>
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#ff4d00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#ff5a14]"
-          >
-            <Github className="h-4 w-4" /> View on GitHub
-          </a>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col rounded-2xl border border-[#ff4d00]/25 bg-gradient-to-br from-[#ff4d00]/10 to-transparent p-7">
+            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#ff4d00]">Run it yourself</span>
+            <h2 className="mt-3 text-xl font-bold tracking-tight">SoundFlare is free and open source</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-white/55">
+              Self-host the whole stack on your own infrastructure in one command, and adapt it to your models and compliance needs.
+            </p>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex w-fit items-center gap-2 rounded-xl bg-[#ff4d00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#ff5a14]"
+            >
+              <Github className="h-4 w-4" /> View on GitHub
+            </a>
+          </div>
+          <div className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-7">
+            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/40">Rather not self-host?</span>
+            <h2 className="mt-3 text-xl font-bold tracking-tight">Use it managed in Trillet</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-white/55">
+              Trillet is a SOC 2 and ISO 27001 compliant voice AI platform that signs BAAs, with a refined, actively maintained version of SoundFlare built in. You can keep using open-source SoundFlare alongside it.
+            </p>
+            <a
+              href="https://trillet.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex w-fit items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-semibold text-white/90 transition-colors hover:border-white/30 hover:bg-white/[0.05]"
+            >
+              Explore Trillet <ArrowUpRight className="h-4 w-4" />
+            </a>
+          </div>
         </div>
 
         {next && (

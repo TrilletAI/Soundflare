@@ -1,0 +1,88 @@
+---
+title: "The booking that never was: how a silent API failure sent a patient to an empty appointment"
+description: A real production incident. Our voice agent reserved a clinic appointment, the confirmation call failed on the clinic's side, and we got the blame. Here is what we learned.
+date: 2026-09-26
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
+tags: [incident, healthcare, silent failures]
+tldr: "Our voice agent reserved a clinic appointment, but the clinic's API failed at the final confirmation step, the one-hour hold expired, and the patient arrived to no booking. The transcript looked perfect, so transcript-based evals would have scored it a success. Catching it requires recording every tool call's response next to the transcript and reviewing both together, inside the clinic's own environment."
+---
+
+A patient walked up to the front desk of a healthcare clinic, said they had an appointment, and gave their name. The receptionist checked the system. Nothing.
+
+The patient had booked it by phone, with the clinic's AI receptionist, running on Trillet. As far as the patient was concerned, the booking was done. As far as the clinic's system was concerned, it had never happened. The clinic did what clinics do (you don't turn away someone who needs care) and scrambled to find a doctor with a free slot. Then they called us, understandably upset, asking why our AI had not made the booking.
+
+It had tried. This is the story of why that didn't matter, and why it changed how we think about monitoring voice agents in production.
+
+**Who this is for:** anyone running AI receptionists or booking agents for clinics, and the agencies and voice AI builders deploying them. If your agent writes to a system you don't control, this can happen to you.
+
+## Reserve is not book
+
+The clinic's scheduling system used a two-step booking flow, which is common in practice management software:
+
+1. **Reserve.** The agent requests a slot. The system places a temporary hold on it. The hold lasts one hour.
+2. **Confirm.** The agent sends a second request that locks the reservation in as a real appointment. If nobody confirms within the hour, the hold quietly expires and the slot goes back into the pool.
+
+Our agent handled the conversation correctly. It found a slot, reserved it, and moved on to confirm. The reserve step succeeded. The confirm step, the very last call in the flow, failed on the clinic's side.
+
+The patient finished the call believing they were booked. An hour later the hold expired, and the appointment evaporated as if it had never existed. Nobody got an alert. Nothing in the clinic's system suggested anything had gone wrong, because from its point of view nothing had: a hold was placed, a hold expired, the end.
+
+## Why everyone blamed the voice agent
+
+From the clinic's perspective, the chain of evidence was short: the patient called the AI, the AI said they were booked, there was no booking. Obviously the AI was at fault.
+
+From our side, the picture was murkier than it should have been. As the voice AI platform, we can see what happens on our side of the line: what the caller said, what the agent said, and the fact that we sent a request. What we cannot see, at least not without access we are rarely given, is what happened inside the clinic's systems after that request arrived. Legacy healthcare systems do not always fail loudly. Some return an error. Some time out. Some return something that looks like success. Some return nothing useful at all.
+
+So the investigation turned into an argument about who had evidence, and neither side had the whole picture. The clinic could see its own database. We could see our own logs. The truth was sitting in the gap between them.
+
+## Why an eval platform would not have caught it
+
+A natural reaction is "this is what voice AI evaluation tools are for." Mostly, it isn't.
+
+A typical third-party eval platform plugs into the voice platform and sees what the platform sees. It would have scored this call as a success. The transcript was clean. The agent was polite, accurate, and followed its instructions. The caller's intent (book an appointment) appeared to be fulfilled. Any metric built on the transcript, or on whether the agent reached its "task complete" state, gives this call a green check. We go deeper on that trap in ["task complete" is lying to you](/blog/how-to-evaluate-if-a-voice-agent-call-worked).
+
+A pre-launch simulation would not have caught it either. Simulated callers run against test systems, or against the real system on a good day. This failure depended on a specific production API misbehaving at a specific step. No script would have predicted it.
+
+## What would have caught it
+
+To catch this kind of failure you need three things recorded together for every call:
+
+- **Every tool call the agent made**, with the full request, the full response, and the HTTP status or error. Not just "called book_appointment."
+- **The transcript**, so you know what the agent told the caller.
+- **Something that compares the two**, and flags the calls where the agent's words do not match what the systems actually did.
+
+That is precisely what SoundFlare's AI call review is built to do. For each call, the reviewer receives the transcript, the agent's instructions, and every API call with its request, response, and status. It is explicitly instructed to look for three kinds of problems:
+
+- **API failures:** any call that returned a 4xx or 5xx, or an error.
+- **Wrong actions:** the agent did something other than what the caller asked, or an action the transcript implies never happened. A confirmation step that is missing or failed counts.
+- **Wrong outputs:** the agent told the caller something the API data does not support. "You're all booked" after a failed confirm is the textbook case.
+
+A call like ours gets flagged, with the evidence attached: the transcript excerpt where the agent said the booking was done, next to the failed confirm request and whatever the clinic's system sent back. Caught shortly after the call, that is often still inside the one-hour hold window, when a human could simply confirm the booking by hand, or call the patient back.
+
+## The part that makes it work: where it runs
+
+Here is the catch. To see the clinic's API responses, the monitoring has to see traffic that contains patient data. A hosted third-party tool would need to be granted that access, which in healthcare means a new vendor, a new business associate agreement, and a new security review. That is why most teams never get this visibility at all.
+
+SoundFlare avoids the problem by running inside the environment that already holds the data. It is open source and self-hosted, so the clinic (or the agency running the deployment) runs it on infrastructure that has already cleared compliance. No new vendor ends up holding patient data. We explain the reasoning in full in [why voice AI observability has to be open source](/blog/why-voice-ai-observability-has-to-be-open-source).
+
+And when the next "your AI didn't book it" call comes in, the conversation is short. Everyone can look at the same trace and see which step failed and on which side.
+
+## Lessons for anyone deploying booking agents
+
+- **Treat multi-step writes as a single outcome.** Reserve without confirm is a failure, even if every individual request "worked."
+- **Record full request and response bodies for tool calls,** not just success flags. Silent failures hide in the details.
+- **Never let the agent announce success before the final write succeeds.** And when the final write fails, have a fallback: retry, escalate to a human, or tell the caller honestly.
+- **Review calls continuously in production,** not just before launch.
+
+If you want all of this without running the infrastructure yourself, [Trillet](https://trillet.ai) builds a refined version of SoundFlare into its SOC 2 and ISO 27001 compliant voice AI platform, and signs BAAs for healthcare deployments. Prefer to own it? The [open-source version](https://github.com/TrilletAI/Soundflare) is free, and it's the same foundation.
+
+## Frequently asked questions
+
+**How do you catch silent failures in a voice agent's tool calls?**
+Log every tool call with its request, response, and status, keep it next to the transcript, and run an automated review that compares what the agent said with what the APIs returned.
+
+**Why didn't the transcript show the problem?**
+Because the conversation went perfectly. The failure happened in a system call after the agent had already done its job in the conversation.
+
+**Who was actually at fault?**
+The confirm request failed on the clinic's side. But from the patient's point of view the answer doesn't matter; what matters is catching it in time to fix it. That requires visibility into both sides of the call.

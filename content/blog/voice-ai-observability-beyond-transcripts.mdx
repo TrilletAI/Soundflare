@@ -1,0 +1,71 @@
+---
+title: "Transcripts aren't observability: monitoring voice AI beyond the transcript"
+description: Re-reading transcripts with another LLM misses dead air, slow tool calls, and failed side effects. Here is what a real voice agent trace looks like, from STT to TTS.
+date: 2026-09-26
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
+tags: [observability, latency, opentelemetry]
+tldr: "Transcripts show what was said, not what the system did or how long it took. Real voice AI observability traces every turn as timed spans (STT, LLM, tools, TTS), records each tool call's result, tracks cost per vendor, and keeps the recording next to the trace so dead air and failed side effects become visible."
+---
+
+A lot of what gets sold as voice AI observability is, underneath, a transcript viewer with an LLM bolted on. The call ends, the transcript gets fed to a model, and the model writes a verdict: sentiment, intent, a quality score.
+
+That's useful. It is also a bit like diagnosing a car by reading the driver's diary.
+
+**Who this is for:** engineers building on LiveKit, Trillet, or a custom voice stack who want to know how to monitor voice AI beyond transcripts, and how to track latency and cost across STT, LLM, and TTS vendors.
+
+## What a transcript can't show you
+
+**Silence.** A transcript has no timestamps for the awkward bits. If the agent took six seconds to answer because a tool call hung, the transcript shows two neatly consecutive lines. On the phone, the caller heard dead air and started saying "hello?"
+
+**Where the time went.** A slow turn could be speech-to-text waiting for end-of-utterance, the LLM taking its time on a long context, a tool call to a sluggish API, or text-to-speech queuing. The transcript can't tell them apart.
+
+**Side effects.** The agent said "I've booked that for you." Did the booking API return a 201, a 500, or nothing at all? The transcript doesn't know. We learned this the expensive way, in [the booking that never was](/blog/silent-api-failure-voice-agent-booking).
+
+**Cost.** Every call burns STT minutes, LLM tokens, and TTS characters, often across three different vendors. None of that is in the words.
+
+## Anatomy of a voice agent trace
+
+A proper trace treats each call as a tree of timed operations, the same way backend engineers trace a web request. SoundFlare uses OpenTelemetry-style spans (trace IDs, span IDs, parent-child relationships, start and end times, status) so a single caller turn breaks down like this:
+
+- **STT span:** from the caller finishing speaking to the final transcript being ready.
+- **LLM span:** time to first token, total generation time, tokens in and out.
+- **Tool spans:** each function the agent called, with its arguments, what it returned, and how long it took.
+- **TTS span:** time to first audio byte and total synthesis time.
+
+Lay those out as a waterfall and the causes jump out. That six-second pause? A tool span that ran for 5.4 seconds, calling an availability endpoint that has a bad day every Monday morning. Now you know what to fix (a cache, a timeout, a "one moment while I check" filler line), instead of blaming the model.
+
+## From traces to answers
+
+Traces are the raw material. The useful bits come from what you do with them.
+
+**Turn-level latency, not averages.** Average response time hides the turns that make people hang up. Sort by the slowest turns and look at which span dominates.
+
+**Cost per call, per vendor.** SoundFlare tracks STT, TTS, and LLM usage per call, so you can see which flows are expensive and whether a cheaper model would do.
+
+**Outcome checking.** SoundFlare's AI call review reads the transcript *together with* every tool call and its result, and flags API failures, wrong actions, and wrong outputs. This is the difference between "the transcript reads fine" and "the transcript reads fine and the booking failed."
+
+**The recording, right there.** Recordings sit next to the trace, so when a turn looks odd you can listen to exactly that moment. To be precise about scope: SoundFlare doesn't automatically grade the audio itself today. It gives you the evidence in one place. And because it's open source, adding your own audio-level checks is a pull request away.
+
+## Why this data should stay with you
+
+Here is the catch with good traces: they contain everything. Tool call responses include names, dates of birth, appointment details, account numbers. The richer your observability, the more sensitive it gets.
+
+That's why SoundFlare runs on your own infrastructure rather than in someone else's cloud. It's also why we think [voice AI observability has to be open source](/blog/why-voice-ai-observability-has-to-be-open-source): it's the only model where you get full-fidelity traces without adding a new vendor to your compliance scope.
+
+If you want it managed instead, [Trillet](https://trillet.ai) builds a refined, actively maintained version of SoundFlare into its SOC 2 and ISO 27001 compliant voice AI platform. The open-source version stays free and works with Trillet too.
+
+## Getting traces from a LiveKit agent
+
+If you're on LiveKit, the SoundFlare Python SDK wraps your `AgentSession` and exports spans, metrics, and the transcript at the end of each call, with OpenTelemetry enabled by a single flag. The full setup, including pointing the SDK at your own self-hosted instance, is in [self-hosted observability for LiveKit voice agents](/blog/livekit-voice-agent-observability-self-hosted).
+
+## Frequently asked questions
+
+**How do you monitor voice AI beyond transcripts?**
+Trace every turn as timed spans (STT, LLM, tools, TTS), record every tool call's request and response, keep the recording alongside, and review calls by comparing the transcript with what the systems actually did.
+
+**How do you catch silent mid-call failures and tool-call freezes?**
+Look at tool spans. A long gap in the conversation almost always maps to a slow or hung tool call, which a span-level trace shows directly.
+
+**How do you track STT, TTS, and LLM costs for voice agents?**
+Capture usage per call (audio seconds, characters, tokens) for each vendor and roll it up per call and per flow. SoundFlare does this per call out of the box.

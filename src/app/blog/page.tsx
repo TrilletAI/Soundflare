@@ -55,7 +55,7 @@ export default function BlogIndex() {
               >
                 <div aria-hidden className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#ff4d00]/10 blur-3xl transition-colors duration-500 group-hover:bg-[#ff4d00]/20" />
                 <div className="relative">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#ff4d00]">Latest</span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#ff4d00]">{featured.featured ? 'Start here' : 'Latest'}</span>
                   <h2 className="mt-4 max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-5xl">{featured.title}</h2>
                   <p className="mt-4 max-w-2xl text-lg text-white/55">{featured.description}</p>
                   <div className="mt-8 flex flex-wrap items-center justify-between gap-4">

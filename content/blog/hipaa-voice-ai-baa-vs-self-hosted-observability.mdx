@@ -1,0 +1,74 @@
+---
+title: "Two compliance boxes: a vendor BAA vs voice AI observability you control"
+description: For healthcare voice agents, every monitoring vendor that touches call data adds another BAA and another place PHI lives. Here is how self-hosted observability changes the math.
+date: 2026-09-26
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
+tags: [healthcare, compliance, hipaa]
+tldr: "Every third-party monitoring vendor that touches healthcare call data generally adds another BAA, another security review, and another place PHI lives. Running self-hosted observability like SoundFlare inside the compliance boundary you already manage avoids adding a vendor and lets you see both sides of every call. This is architecture guidance, not legal advice."
+---
+
+Healthcare is one of the best places to deploy voice agents and one of the hardest places to monitor them. The calls are full of protected health information: names, dates of birth, symptoms, medications, insurance details, appointment times. Every system that stores or processes that data needs to be accounted for.
+
+So when a clinic, a health system, or the agency serving them asks "how do we monitor our AI receptionist in production?", the real question underneath is "how many more vendors do we have to let touch patient data?"
+
+**Who this is for:** compliance and security teams approving voice AI in healthcare, enterprise healthcare IT, and agencies deploying AI receptionists for clinics. *This post is about architecture, not legal advice. Talk to your compliance counsel about your specific obligations.*
+
+## Box one: the vendor BAA
+
+In the US, when a vendor handles protected health information on behalf of a healthcare provider, HIPAA generally requires a business associate agreement (BAA) between them. The voice AI platform is usually one such business associate. Your cloud provider may be another.
+
+Now add a third-party evaluation or monitoring platform. To score calls it needs transcripts and recordings, which contain PHI. To tell you *why* a booking failed, it would also need to see the requests and responses between the agent and your EHR or practice management system, which contain even more PHI. That makes it another business associate, which means:
+
+- another BAA to negotiate and sign,
+- another security questionnaire and vendor review,
+- another copy of patient data sitting in someone else's infrastructure,
+- another breach surface you are responsible for managing,
+- another subprocessor to disclose.
+
+Plenty of organizations will do this for a core system. Far fewer will do it for a monitoring layer. And many that would sign still won't grant the depth of access needed to see inside their own systems' responses. So the monitoring vendor ends up seeing only what the voice platform sees, which is exactly the part that rarely explains production failures. We cover why in [why voice AI observability has to be open source](/blog/why-voice-ai-observability-has-to-be-open-source).
+
+## Box two: observability you control
+
+The alternative is to run the monitoring inside the compliance boundary you already have.
+
+The clinic, health system, or its managed-service partner has already done the work: the data lives in systems that are reviewed, access-controlled, logged, and covered by their existing agreements. If the observability software runs there, on their servers or in their own cloud account, then:
+
+- **no new vendor holds PHI** for monitoring purposes,
+- **no new BAA** is needed for the monitoring layer itself,
+- **the data doesn't move** anywhere it wasn't already allowed to be,
+- **your existing controls apply:** encryption, access control, audit logging, retention policies,
+- and crucially, the monitoring can see **both sides of every call**, including your own systems' API responses, because it's running where that data already lives.
+
+That's the model SoundFlare is built for. It's open source (MIT licensed) and self-hosted, and it runs next to your voice stack on your infrastructure.
+
+## The honest details
+
+"Self-hosted" is not a magic word, so here is exactly what to check.
+
+**The AI call reviewer uses an LLM.** Out of the box, SoundFlare's reviewer runs on Gemini through Vertex AI, in *your* Google Cloud project, using your credentials. If your organization already has a BAA covering that cloud account and service, the review stays inside that agreement. If you need transcripts to never leave your own network, the code is yours: swap in a model you host locally. We designed the repo as a skeleton for exactly this kind of adaptation.
+
+**Compliance is how you deploy, not what you download.** No codebase is "HIPAA compliant" on its own. SoundFlare gives you a system you can deploy inside controls you already trust. Your team still owns configuration, access control, retention, and audits.
+
+**Audit trails matter.** Because every call is stored with its transcript, recording, trace, and every tool call's request and response, you have a record of what the agent said and did, for incident investigation and for showing that required disclosures were made.
+
+## What this looks like for a clinic
+
+A clinic runs an AI receptionist that books appointments into its practice management system. A patient says they booked an appointment that the system has no record of. That really happened to us. The story is in [the booking that never was](/blog/silent-api-failure-voice-agent-booking).
+
+With SoundFlare running inside the clinic's environment, the investigation is a lookup, not a negotiation. The trace shows the reserve request succeeded, the confirm request failed on the clinic's side, and exactly what the system returned. No PHI left the clinic's boundary to get that answer, and no new vendor had to be onboarded to see it.
+
+## If you'd rather not run it yourself
+
+Not every clinic or agency wants to operate its own monitoring stack. [Trillet](https://trillet.ai) is a SOC 2 and ISO 27001 compliant voice AI platform that signs BAAs and ships a refined, actively maintained version of SoundFlare built in. Monitoring comes under the same BAA as the voice platform itself, instead of adding another vendor. And you can keep running open-source SoundFlare alongside it if you want a copy under your own control.
+
+## Frequently asked questions
+
+**Do I need a BAA with a voice AI monitoring vendor?**
+If the vendor will create, receive, store, or transmit PHI on your behalf, generally yes. Confirm with your compliance counsel. Running monitoring inside your own environment avoids adding a new vendor to that list, and so does using monitoring built into a voice platform you already have a BAA with, such as Trillet.
+
+**How do you test HIPAA compliance on voice agents?**
+Testing covers behavior (does the agent verify identity and make required disclosures?) and data handling (where do transcripts, recordings, and logs go, and who can access them?). Call reviews against the agent's instructions help with the first; self-hosting helps with the second.
+
+**Can I use SoundFlare without sending transcripts to a cloud LLM?**
+Yes, by pointing the reviewer at a model you host. The default uses Gemini on Vertex AI in your own Google Cloud project.
