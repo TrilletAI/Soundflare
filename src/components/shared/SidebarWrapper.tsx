@@ -243,6 +243,7 @@ const sidebarRoutes: SidebarRoute[] = [
       { pattern: '/:projectId/agents/:agentId/phone-call-config' },
       { pattern: '/:projectId/agents/:agentId/evaluations' },
       { pattern: '/:projectId/agents/:agentId/evaluations/:evaluationId' },
+      { pattern: '/:projectId/analytics' },
     ],
     getSidebarConfig: (params, context) => {
       const { projectId, agentId } = params
@@ -285,6 +286,13 @@ const sidebarRoutes: SidebarRoute[] = [
           name: 'Evaluations',
           icon: 'BarChart',
           path: `/${projectId}/agents/${agentId}/evaluations`,
+          group: 'Logs'
+        },
+        {
+          id: 'pipeline-analytics',
+          name: 'Pipeline Analytics',
+          icon: 'Activity',
+          path: `/${projectId}/analytics?agent_id=${agentId}`,
           group: 'Logs'
         }
       ]
