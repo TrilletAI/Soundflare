@@ -5,7 +5,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
 import { Button } from '../ui/button';
-import { GITHUB_URL, useGithubStars } from './github'
+import { useGithubStars } from './github'
+import { GITHUB_URL } from './github-urls'
 
 function Header() {
     const stars = useGithubStars()
