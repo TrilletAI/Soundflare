@@ -2,9 +2,6 @@
 
 import { useEffect, useState } from 'react'
 
-export const GITHUB_URL = 'https://github.com/TrilletAI/Soundflare'
-export const SDK_GITHUB_URL = 'https://github.com/TrilletAI/soundflare-sdk'
-
 // Shared across every component on the page so the GitHub API is hit once
 let starsRequest: Promise<number | null> | null = null
 
