@@ -1,477 +1,418 @@
 "use client"
 
-import Link from "next/link"
-import { ArrowRight, BarChart3, Zap, Shield, Clock, Code, Mic, Activity, Github, Star, ExternalLink, Users, FlaskConical, Bell } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-// import { CompanyMarquee } from "@/components/landing/company-marquee"
-import { PricingSection } from "@/components/landing/pricing-section"
-import { HoverBorderGradient } from "@/components/ui/hover-border-gradient"
-import { FlipWords } from "@/components/ui/flip-words"
-import { FlareBackground } from "@/components/ui/flare-background"
-
-import { cn } from "@/lib/utils"
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Bot,
+  Bug,
+  FlaskConical,
+  Github,
+  PhoneOutgoing,
+  Scale,
+  Search,
+  Server,
+  ShieldCheck,
+  Star,
+  Workflow,
+} from "lucide-react"
 import Image from "next/image"
-import { motion } from "motion/react"
-import React from "react"
-import { useState, useEffect } from "react"
+import { motion, useScroll, useTransform } from "motion/react"
+import React, { useRef } from "react"
+import { cn } from "@/lib/utils"
 import Header from "./landing-header"
+import Footer from "./footer"
+import { LandingStyles } from "./styles"
+import { GITHUB_URL, SDK_GITHUB_URL, useGithubStars } from "./github"
+import { CodeWindow, MetricsMock, MonoLabel, ReviewMock, WaterfallMock, Waveform } from "./visuals"
+
+const stack = ["LiveKit", "Trillet", "OpenAI", "Gemini", "ElevenLabs", "Google TTS", "Sarvam", "Supabase", "Docker"]
+
+const smallFeatures = [
+  {
+    icon: FlaskConical,
+    title: "Automated evaluations",
+    description: "AI callers that behave like real people stress-test your agent on the happy paths and the messy ones.",
+  },
+  {
+    icon: PhoneOutgoing,
+    title: "Outbound campaigns",
+    description: "Upload a CSV, set call windows and retries, and watch every dial land in the logs.",
+  },
+  {
+    icon: Bot,
+    title: "Agent builder",
+    description: "Create and deploy LiveKit agents with your pick of LLM, STT, and voices from ElevenLabs, Google, or Sarvam.",
+  },
+  {
+    icon: Workflow,
+    title: "SIP & telephony",
+    description: "Manage trunks, dispatch rules, and phone numbers so agents can take and place real calls.",
+  },
+  {
+    icon: Search,
+    title: "Search & saved views",
+    description: "Global search, advanced filters, and saved views across thousands of calls.",
+  },
+  {
+    icon: Bug,
+    title: "Voice bug reporting",
+    description: "Flag issues out loud mid-test. Voice commands pin the exact moment in the call.",
+  },
+]
+
+const quickstart = `git clone ${GITHUB_URL}.git
+cd Soundflare
+./scripts/docker-start.sh
+# dashboard → http://localhost:8000
+# login credentials are printed in your terminal`
+
+const sdkSnippet = `from soundflare import LivekitObserve
+
+soundflare = LivekitObserve(
+    agent_id="YOUR_AGENT_ID",
+    apikey="YOUR_API_KEY",  # from your SoundFlare dashboard
+)
+
+async def entrypoint(ctx):
+    session = AgentSession(...)
+    session_id = soundflare.start_session(session=session)
+
+    async def on_shutdown():
+        await soundflare.export(session_id)
+    ctx.add_shutdown_callback(on_shutdown)`
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const },
+}
+
+function GithubButton({ stars, className }: { stars: number | null; className?: string }) {
+  return (
+    <a
+      href={GITHUB_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "group relative inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-[#ff4d00] px-6 py-3.5 text-base font-semibold text-white shadow-[0_0_0_1px_rgba(255,120,60,0.5),0_12px_40px_-8px_rgba(255,77,0,0.6)] transition-all hover:bg-[#ff5a14] hover:shadow-[0_0_0_1px_rgba(255,140,80,0.7),0_16px_50px_-6px_rgba(255,77,0,0.75)]",
+        className,
+      )}
+    >
+      <Github className="h-5 w-5" />
+      Star on GitHub
+      {stars !== null && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-black/20 px-2 py-0.5 font-mono text-sm">
+          <Star className="h-3.5 w-3.5 fill-current" />
+          {stars.toLocaleString()}
+        </span>
+      )}
+      <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+    </a>
+  )
+}
+
+function GhostButton({ href, children, external }: { href: string; children: React.ReactNode; external?: boolean }) {
+  return (
+    <a
+      href={href}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-6 py-3.5 text-base font-semibold text-white/90 backdrop-blur transition-colors hover:border-white/30 hover:bg-white/[0.06]"
+    >
+      {children}
+      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+    </a>
+  )
+}
+
+function SectionHeading({ index, label, title, children }: { index: string; label: string; title: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <motion.div {...fadeUp} className="mb-14 max-w-3xl">
+      <MonoLabel>
+        {index} — {label}
+      </MonoLabel>
+      <h2 className="mt-4 text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl">{title}</h2>
+      {children && <p className="mt-5 text-lg leading-relaxed text-white/55">{children}</p>}
+    </motion.div>
+  )
+}
+
+function Tile({ className, children, delay = 0 }: { className?: string; children: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div
+      {...fadeUp}
+      transition={{ ...fadeUp.transition, delay }}
+      className={cn(
+        "group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6 transition-colors hover:border-[#ff4d00]/30",
+        className,
+      )}
+    >
+      <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[#ff4d00]/0 blur-3xl transition-colors duration-500 group-hover:bg-[#ff4d00]/15" />
+      <div className="relative">{children}</div>
+    </motion.div>
+  )
+}
 
 export default function LandingPage() {
-  // FlipWords for the hero heading
-  const words = [
-    { text: "precision", className: "text-[#ff4d00]" },
-    { text: "confidence", className: "text-[#ff4d00]" },
-    { text: "clarity", className: "text-[#ff4d00]" },
-    { text: "intelligence", className: "text-[#ff4d00]" },
-    { text: "SoundFlare", className: "text-[#ff4d00]" }
-  ];
+  const stars = useGithubStars()
+  const shotRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: shotRef, offset: ["start end", "center center"] })
+  const rotateX = useTransform(scrollYProgress, [0, 1], [22, 0])
+  const scale = useTransform(scrollYProgress, [0, 1], [0.92, 1])
 
   return (
     <>
-      {/* Page-specific font loading - Cabinet Grotesk */}
-      <style jsx global>{`
-        @import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,600,700,800&display=swap');
-        
-        .soundflare-landing-font {
-          font-family: 'Cabinet Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-      `}</style>
+      <LandingStyles />
 
-      <div className="min-h-screen bg-background soundflare-landing-font">
+      {/* Landing is designed dark-only; the `dark` class scopes the dark theme tokens to this page */}
+      <div className="dark soundflare-landing-font relative min-h-screen overflow-x-clip bg-[#070707] text-white selection:bg-[#ff4d00]/40">
+        <div aria-hidden className="sf-grain pointer-events-none fixed inset-0 z-[60] opacity-[0.035] mix-blend-overlay" />
 
-        {/* Enhanced Header */}
         <Header />
 
-        {/* Hero Section with Flare Light Background */}
-        <section className="relative min-h-screen flex items-center overflow-hidden">
-          {/* Animated Flare Light Background */}
-          <div className="absolute inset-0 bg-background">
-            <FlareBackground />
+        {/* ───────────── Hero ───────────── */}
+        <section className="relative pt-24 sm:pt-32">
+          <div aria-hidden className="sf-grid absolute inset-0 -top-20" />
+          <div aria-hidden className="absolute left-1/2 top-0 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#ff4d00]/[0.13] blur-[140px]" />
+
+          <div className="relative mx-auto max-w-6xl px-5 text-center sm:px-8">
+            <motion.a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pl-1.5 pr-4 font-mono text-xs text-white/70 backdrop-blur transition-colors hover:border-white/20 hover:text-white"
+            >
+              <span className="rounded-full bg-[#ff4d00] px-2.5 py-0.5 font-semibold text-white">v0.2</span>
+              Free &amp; open source · MIT licensed
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </motion.a>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+              className="mx-auto mt-8 max-w-5xl text-[clamp(2.75rem,8vw,6.5rem)] font-extrabold leading-[0.95] tracking-[-0.035em]"
+            >
+              The flight recorder
+              <br />
+              for{" "}
+              <span className="relative inline-block bg-gradient-to-br from-[#ff7a3d] via-[#ff4d00] to-[#d93a00] bg-clip-text text-transparent">
+                voice AI agents
+              </span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.25 }}
+              className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-white/60 sm:text-xl"
+            >
+              Open-source observability for LiveKit and Trillet agents. Trace every turn, catch hallucinations and
+              wrong actions automatically, and run it all on your own infrastructure.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.4 }}
+              className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
+            >
+              <GithubButton stars={stars} />
+              <GhostButton href="#self-host">Self-host in one command</GhostButton>
+            </motion.div>
+
+            {/* Waveform band */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, delay: 0.6 }}
+              className="mx-auto mt-16 h-16 max-w-4xl text-[#ff4d00]/70 [mask-image:linear-gradient(to_right,transparent,black_20%,black_80%,transparent)]"
+            >
+              <Waveform bars={110} />
+            </motion.div>
           </div>
 
-          <div className="relative z-10 container mx-auto px-6 py-20">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-              {/* Left side - Content */}
-              <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                viewport={{ once: true }}
-                className="lg:pr-12"
-              >
-                {/* Badge with Light Effect */}
-                <div className="relative mb-8">
-                  {/* Light effects */}
-                  <div className="absolute inset-0">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      whileInView={{ opacity: 0.4, scale: 1 }}
-                      transition={{
-                        delay: 0.3,
-                        duration: 0.8,
-                        ease: "easeInOut",
-                      }}
-                      className="absolute h-32 w-64 bg-[#ff4d00]/10 rounded-full blur-3xl -left-10"
-                    />
-                  </div>
-
-                  {/* The actual badge */}
-                  <motion.div
-                    initial={{ opacity: 0.5, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{
-                      delay: 0.3,
-                      duration: 0.8,
-                      ease: "easeInOut",
-                    }}
-                    className="relative z-10 inline-flex items-center space-x-2 bg-white/10 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border border-white/20"
-                    style={{ textShadow: "0 0 20px rgba(255, 255, 255, 0.5), 0 0 40px rgba(255, 255, 255, 0.3)" }}
-                  >
-                    <Activity className="w-4 h-4" />
-                    <span>Voice AI Observability Platform</span>
-                  </motion.div>
-                </div>
-
-                {/* Hero Heading with FlipWords Effect */}
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-tight tracking-tight">
-                  Monitor your <span className="text-white">voice AI</span> agents with
-                  <span className="inline-block min-w-[240px]">
-                    <FlipWords words={words} className="text-[#ff4d00]" />
+          {/* Product shot with scroll-driven tilt */}
+          <div ref={shotRef} className="relative mx-auto -mt-6 max-w-6xl px-5 pb-10 sm:px-8 [perspective:1600px]">
+            <motion.div style={{ rotateX, scale }} className="relative origin-top">
+              <div aria-hidden className="absolute -inset-x-10 -top-10 bottom-10 rounded-[2rem] bg-[#ff4d00]/20 blur-[100px]" />
+              <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#0d0d0d] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]">
+                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+                  <span className="mx-auto rounded-md bg-white/[0.05] px-10 py-1 font-mono text-[11px] text-white/40">
+                    localhost:8000
                   </span>
-                </h1>
+                </div>
+                <Image
+                  src="/hero-banner-soundflare.png"
+                  alt="SoundFlare observability view showing a call's turns, latency, and pipeline operations"
+                  width={1423}
+                  height={806}
+                  priority
+                  className="w-full"
+                  draggable={false}
+                />
+              </div>
+            </motion.div>
+          </div>
+        </section>
 
-                <p className="text-lg lg:text-xl text-muted-foreground max-w-xl mb-10 leading-relaxed">
-                  Open-source observability for voice AI agents. Automatically catch hallucinations, wrong actions, and API failures before they impact users.
+        {/* ───────────── Stack marquee ───────────── */}
+        <section className="relative border-y border-white/[0.06] py-7">
+          <div className="mx-auto flex max-w-6xl items-center gap-8 px-5 sm:px-8">
+            <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.2em] text-white/35 sm:block">
+              Plays well with
+            </span>
+            <div className="relative flex-1 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+              <div className="sf-marquee flex w-max gap-12">
+                {[...stack, ...stack].map((name, i) => (
+                  <span key={i} className="whitespace-nowrap text-lg font-semibold text-white/40">
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ───────────── Features bento ───────────── */}
+        <section id="features" className="relative scroll-mt-20 px-5 py-28 sm:px-8">
+          <div className="mx-auto max-w-6xl">
+            <SectionHeading index="01" label="Capabilities" title={<>See what your agent <span className="text-white/40">actually</span> did.</>}>
+              Build, test, and debug voice agents from one dashboard you own. No per-call pricing, no seat limits.
+            </SectionHeading>
+
+            <div className="grid gap-4 md:grid-cols-6">
+              <Tile className="md:col-span-4 md:row-span-2">
+                <div className="flex items-center gap-2 text-[#ff4d00]">
+                  <ShieldCheck className="h-5 w-5" />
+                  <MonoLabel>Core</MonoLabel>
+                </div>
+                <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">AI call reviews</h3>
+                <p className="mt-2 max-w-lg text-white/55">
+                  A Gemini-powered reviewer reads every call and checks the agent&apos;s claims against what actually
+                  happened: tool calls, API responses, and your knowledge base. Results stream in live.
                 </p>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <a href="https://forms.gle/Vw4KYc9YWk1EN2K57" target="_blank" rel="noopener noreferrer">
-                    <Button size="lg" className="text-lg px-8 py-6 group font-medium bg-[#ff4d00] hover:bg-[#e64500] text-white">
-                      Join Waitlist
-                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </a>
+                <div className="mt-6">
+                  <ReviewMock />
                 </div>
-              </motion.div>
-
-              {/* Right side - Image */}
-              <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                viewport={{ once: true }}
-                className="relative"
-              >
-                <div className="relative">
-                  {/* Glow effect behind image */}
-                  <div className="absolute -inset-4 bg-[#ff4d00]/10 rounded-3xl blur-2xl" />
-                  <Image
-                    src="/hero-banner-soundflare.png"
-                    alt="SoundFlare - Voice AI Observability for Trillet AI"
-                    height={720}
-                    width={1000}
-                    className="relative rounded-2xl object-cover shadow-2xl border border-white/10"
-                    draggable={false}
-                  />
+                <div className="mt-5 flex flex-wrap gap-2 font-mono text-[11px] text-white/50">
+                  {["auto-review per agent", "batch review recent calls", "queued on every new call", "live updates via SSE"].map((chip) => (
+                    <span key={chip} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+                      {chip}
+                    </span>
+                  ))}
                 </div>
-              </motion.div>
+              </Tile>
+
+              <Tile className="md:col-span-2" delay={0.1}>
+                <MonoLabel className="text-white/40">Traces</MonoLabel>
+                <h3 className="mt-2 text-xl font-bold tracking-tight">Span-level waterfall</h3>
+                <p className="mt-1.5 mb-5 text-sm text-white/50">STT, LLM, tools, and TTS for every turn.</p>
+                <WaterfallMock />
+              </Tile>
+
+              <Tile className="md:col-span-2" delay={0.2}>
+                <MonoLabel className="text-white/40">Metrics</MonoLabel>
+                <h3 className="mt-2 mb-4 text-xl font-bold tracking-tight">Latency, tokens &amp; cost</h3>
+                <MetricsMock />
+              </Tile>
+
+              {smallFeatures.map(({ icon: Icon, title, description }, i) => (
+                <Tile key={title} className="md:col-span-2" delay={(i % 3) * 0.08}>
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-[#ff4d00] transition-colors group-hover:border-[#ff4d00]/40">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-bold tracking-tight">{title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-white/50">{description}</p>
+                </Tile>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Company Marquee */}
-        {/* <CompanyMarquee /> */}
+        {/* ───────────── Self-host ───────────── */}
+        <section id="self-host" className="relative scroll-mt-20 overflow-hidden border-t border-white/[0.06] px-5 py-28 sm:px-8">
+          <div aria-hidden className="absolute -left-40 top-1/3 h-96 w-96 rounded-full bg-[#ff4d00]/10 blur-[120px]" />
+          <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1fr_1.15fr]">
+            <div>
+              <SectionHeading index="02" label="Self-host" title="Up and running in one command.">
+                A Docker Compose stack with the dashboard, Postgres, Supabase Auth, and an API gateway. Your calls,
+                recordings, and transcripts never leave your infrastructure.
+              </SectionHeading>
 
-        {/* AI Validation Engine - Spotlight Section */}
-        <section id="features" className="py-24 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-balance mb-4 tracking-tight">Ship voice AI with confidence</h2>
-              <p className="text-xl text-muted-foreground text-balance max-w-2xl mx-auto">
-                End-to-end observability that validates every action, API call, and response in real time.
-              </p>
-            </div>
-
-            {/* Featured: AI Validation Engine */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-              className="mb-16"
-            >
-              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#ff4d00]/5 via-[#ff4d00]/10 to-[#ff6b35]/5 border border-[#ff4d00]/20 p-8 md:p-12">
-                {/* Background decoration */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#ff4d00]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#ff6b35]/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-
-                <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
-                  {/* Icon */}
-                  <div className="flex-shrink-0">
-                    <div className="w-20 h-20 bg-[#ff4d00]/10 rounded-2xl flex items-center justify-center border border-[#ff4d00]/20">
-                      <Shield className="w-10 h-10 text-[#ff4d00]" />
+              <ol className="-mt-4 space-y-5">
+                {[
+                  ["Run the stack", "Generates JWT keys, starts every service, and seeds a login."],
+                  ["Instrument your agent", "Add the Python SDK to your LiveKit or Trillet agent."],
+                  ["Watch calls land", "Traces, metrics, and AI reviews show up in real time."],
+                ].map(([title, text], i) => (
+                  <motion.li key={title} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.1 }} className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#ff4d00]/40 font-mono text-xs text-[#ff4d00]">
+                      0{i + 1}
+                    </span>
+                    <div>
+                      <h4 className="font-bold">{title}</h4>
+                      <p className="text-sm text-white/50">{text}</p>
                     </div>
-                  </div>
+                  </motion.li>
+                ))}
+              </ol>
 
-                  {/* Content */}
-                  <div className="flex-1 text-center lg:text-left">
-                    <div className="inline-flex items-center gap-2 bg-[#ff4d00]/10 text-[#ff4d00] px-3 py-1 rounded-full text-sm font-medium mb-4">
-                      <Zap className="w-3 h-3" />
-                      Core Feature
-                    </div>
-                    <h3 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">AI Validation Engine</h3>
-                    <p className="text-lg text-muted-foreground leading-relaxed mb-6 max-w-2xl">
-                      Verify that your AI actually does what it says. Our validation agent automatically checks whether APIs were called correctly, responses returned the right status codes, and nothing was hallucinated.
-                    </p>
-                    <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        API call verification
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        Hallucination detection
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        Response validation
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 font-mono text-xs text-white/45">
+                <span className="inline-flex items-center gap-2"><Server className="h-3.5 w-3.5 text-[#ff4d00]" /> Docker · Vercel · any VM</span>
+                <span className="inline-flex items-center gap-2"><Scale className="h-3.5 w-3.5 text-[#ff4d00]" /> MIT licensed</span>
               </div>
-            </motion.div>
-
-            {/* Other Features - 2x2 Grid */}
-            <div className="grid md:grid-cols-2 gap-8">
-              {[
-                {
-                  icon: BarChart3,
-                  title: "Real-Time Metrics",
-                  description: "Track critical performance indicators like latency and token costs. Get instant visibility into how your voice AI performs under real conditions.",
-                },
-                {
-                  icon: Mic,
-                  title: "Voice-Activated Bug Reporting",
-                  description: "Report bugs naturally while testing your agents. Use custom voice commands to flag issues without interrupting your workflow or switching contexts.",
-                },
-                {
-                  icon: Code,
-                  title: "Native Integration",
-                  description: "Built specifically for LiveKit and Trillet. No complex setup or configuration needed. Works seamlessly with your existing voice AI stack from day one.",
-                },
-                {
-                  icon: Zap,
-                  title: "Lightning Fast Performance",
-                  description: "Minimal overhead monitoring that won't impact your application's performance. Get comprehensive insights without sacrificing the speed your users expect.",
-                },
-                {
-                  icon: FlaskConical,
-                  title: "Automated Evaluations",
-                  description: "Stress test your agent with AI-generated callers that mimic real human behavior. Cover both happy and unhappy paths to find edge cases before users do.",
-                },
-                {
-                  icon: Bell,
-                  title: "Intelligent Alert System",
-                  description: "Get notified when STT, LLM, or TTS components underperform. Instant alerts for hallucinations, failed API calls, or response mismatches.",
-                },
-              ].map((feature, index) => {
-                const Icon = feature.icon
-                return (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                  >
-                    <HoverBorderGradient
-                      containerClassName="rounded-2xl w-full h-full"
-                      as="div"
-                      className="bg-background border-border/50 hover:border-primary/50 transition-colors group p-0 h-full"
-                    >
-                      <Card className="border-0 shadow-none bg-transparent h-full">
-                        <CardHeader>
-                          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                            <Icon className="w-6 h-6 text-primary" />
-                          </div>
-                          <CardTitle className="text-xl font-semibold">{feature.title}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <CardDescription className="text-base leading-relaxed">{feature.description}</CardDescription>
-                        </CardContent>
-                      </Card>
-                    </HoverBorderGradient>
-                  </motion.div>
-                )
-              })}
             </div>
-          </div>
-        </section>
 
-        {/* How It Works Section */}
-        <section id="how-it-works" className="py-24 px-4 sm:px-6 lg:px-8 bg-muted/30">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-balance mb-4 tracking-tight">Connect your voice agent</h2>
-              <p className="text-xl text-muted-foreground text-balance max-w-2xl mx-auto">
-                Link your voice AI agent and start watching calls come in with automatic observability
+            <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.15 }}>
+              <CodeWindow
+                tabs={[
+                  { label: "terminal", lang: "shell", code: quickstart },
+                  { label: "agent.py", lang: "python", code: sdkSnippet },
+                ]}
+              />
+              <p className="mt-4 text-center font-mono text-xs text-white/35">
+                SDK source:{" "}
+                <a href={SDK_GITHUB_URL} target="_blank" rel="noopener noreferrer" className="text-white/60 underline underline-offset-4 hover:text-[#ff4d00]">
+                  TrilletAI/soundflare-sdk
+                </a>
               </p>
-            </div>
-
-            <div className="max-w-4xl mx-auto">
-              <Card className="p-8">
-                <CardContent className="space-y-8">
-                  <div className="text-center space-y-4">
-                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                      <Activity className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-2xl font-semibold">What you get</h3>
-                    <p className="text-muted-foreground text-lg leading-relaxed max-w-2xl mx-auto">
-                      Once connected, every call is automatically captured, validated, and analyzed—giving you complete visibility into what your AI is actually doing.
-                    </p>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6 pt-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-semibold mb-1">Catch hallucinations before users do</h4>
-                        <p className="text-sm text-muted-foreground">Automatically detect when your AI makes things up or provides inaccurate information</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-semibold mb-1">Verify every API call was executed</h4>
-                        <p className="text-sm text-muted-foreground">Know with certainty that your AI followed through on actions it claimed to perform</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-semibold mb-1">Identify performance bottlenecks</h4>
-                        <p className="text-sm text-muted-foreground">Track latency and token costs to optimize response times and reduce expenses</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-semibold mb-1">Ship with confidence</h4>
-                        <p className="text-sm text-muted-foreground">Deploy knowing that every response is validated and every action is tracked</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-center pt-4">
-                    <a href="https://forms.gle/Vw4KYc9YWk1EN2K57" target="_blank" rel="noopener noreferrer">
-                      <Button size="lg" className="text-lg px-8 py-6 font-medium bg-[#ff4d00] hover:bg-[#e64500] text-white">
-                        Join Waitlist
-                      </Button>
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            </motion.div>
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section id="pricing">
-          <PricingSection />
-        </section>
-
-        {/* CTA Section */}
-        {/* <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-primary/10 via-transparent to-purple-500/10">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold text-balance mb-6 tracking-tight">Ready to optimize your Voice AI?</h2>
-            <p className="text-xl text-muted-foreground text-balance mb-8 max-w-2xl mx-auto">
-              Join hundreds of developers who trust Soundflare to monitor and optimize their LiveKit voice agents.
+        {/* ───────────── Open source CTA ───────────── */}
+        <section className="relative overflow-hidden border-t border-white/[0.06] px-5 py-32 sm:px-8">
+          <div aria-hidden className="absolute inset-x-0 bottom-0 h-28 translate-y-1/2 text-[#ff4d00]/25 [mask-image:linear-gradient(to_right,transparent,black_25%,black_75%,transparent)]">
+            <Waveform bars={160} />
+          </div>
+          <motion.div {...fadeUp} className="relative mx-auto max-w-3xl text-center">
+            <MonoLabel>03 — Open source</MonoLabel>
+            <h2 className="mt-5 text-5xl font-extrabold leading-[0.95] tracking-[-0.03em] sm:text-7xl">
+              Star it. Fork it.
+              <br />
+              <span className="text-[#ff4d00]">Ship it.</span>
+            </h2>
+            <p className="mx-auto mt-6 max-w-xl text-lg text-white/55">
+              SoundFlare is free and built in the open. Open an issue, send a pull request, or just tell us what your
+              voice stack needs.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/sign-in">
-                <Button size="lg" className="text-lg px-8 py-6 group font-medium">
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 bg-transparent font-medium">
-                Schedule Demo
-              </Button>
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <GithubButton stars={stars} />
+              <GhostButton href={`${GITHUB_URL}/issues`} external>
+                Open an issue
+              </GhostButton>
             </div>
-          </div>
-        </section> */}
-
-        <section className="py-16 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-            >
-              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#ff4d00]/5 via-[#ff4d00]/10 to-[#ff6b35]/5 border border-[#ff4d00]/20 p-8 md:p-12">
-                {/* Background decoration */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#ff4d00]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#ff6b35]/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-
-                <div className="relative z-10 flex flex-col lg:flex-row items-start gap-8 lg:gap-12">
-                  {/* Icon */}
-                  <div className="flex-shrink-0">
-                    <div className="w-20 h-20 bg-[#ff4d00]/10 rounded-2xl flex items-center justify-center border border-[#ff4d00]/20">
-                      <Shield className="w-10 h-10 text-[#ff4d00]" />
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 text-center lg:text-left">
-                    <h3 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">Get a comprehensive monitoring suite</h3>
-                    <p className="text-lg text-muted-foreground leading-relaxed mb-6 max-w-2xl">
-                      We'll set up full observability for your voice agents, whether you're on Pipecat, LiveKit, or a custom stack. Get complete visibility into hallucinations, tool calling accuracy, API execution, latency, and costs, tailored to your infrastructure.
-                    </p>
-                    <Button
-                      size="lg"
-                      className="bg-[#ff4d00] hover:bg-[#e64500] text-white font-medium"
-                      onClick={() => window.open('https://cal.com/team/trillet-ai/soundflare', '_blank', 'noopener,noreferrer')}
-                    >
-                      Talk to an Expert
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+          </motion.div>
         </section>
 
-        {/* Footer */}
-        <footer className="border-t border-border/50 py-12 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-8">
-              <div className="col-span-1">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-                    <Image src="/logo.png" alt="Logo" width={40} height={40} />
-                  </div>
-                  <span className="text-xl font-bold bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] bg-clip-text text-transparent tracking-tight">SoundFlare</span>
-                </div>
-                <p className="text-sm text-muted-foreground">The open source observability platform and managed service for voice AI.</p>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-4">Product</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>
-                    <Link href="#features" className="hover:text-foreground transition-colors">
-                      Features
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/sign-in" className="hover:text-foreground transition-colors">
-                      Dashboard
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-4">Company</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>
-                    <Link href="https://trillet.ai" target="_blank" className="hover:text-foreground transition-colors">
-                      Trillet AI
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="https://trillet.ai/enterprise" target="_blank" className="hover:text-foreground transition-colors">
-                      Enterprise
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-4">Legal</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>
-                    <Link href="/privacy-policy" className="hover:text-foreground transition-colors">
-                      Privacy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/terms-of-service" className="hover:text-foreground transition-colors">
-                      Terms
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="border-t border-border/50 mt-12 pt-8 text-center text-sm text-muted-foreground">
-              <p>&copy; 2026 SoundFlare. All rights reserved.</p>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </>
   )

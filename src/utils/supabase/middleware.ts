@@ -53,6 +53,7 @@ export async function updateSession(request: NextRequest) {
     '/terms-of-service',
     '/privacy-policy',
     '/docs',
+    '/blog',
     '/api',
     '/auth',
     '/_next',
