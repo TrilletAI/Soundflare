@@ -1,7 +1,7 @@
 import { BookOpen, Github } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { GITHUB_URL, SDK_GITHUB_URL } from "./github"
+import { GITHUB_URL, SDK_GITHUB_URL } from "./github-urls"
 
 export default function Footer() {
   return (

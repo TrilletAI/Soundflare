@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowUpRight, Github } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import type { MDXContent } from 'mdx/types'
 import { blogSource, formatPostDate, getPost, getPosts } from '@/lib/blog'
-import { GITHUB_URL } from '@/components/landing/github'
+import { GITHUB_URL } from '@/components/landing/github-urls'
 
 type Params = { params: Promise<{ slug: string[] }> }
 
