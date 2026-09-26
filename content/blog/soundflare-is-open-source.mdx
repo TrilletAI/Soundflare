@@ -2,25 +2,25 @@
 title: SoundFlare is now free and open source
 description: No plans, no per-call pricing, no waitlist. SoundFlare is MIT licensed and you can self-host the whole stack in one command.
 date: 2026-09-26
-author: The SoundFlare team
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
 tags: [announcement, open source]
+tldr: "SoundFlare, the observability platform for voice AI agents, is now free and MIT licensed. There are no plans or per-call pricing: clone the repo, self-host the whole stack with one Docker command, and connect LiveKit or Trillet agents with the Python SDK."
 ---
 
-When we started SoundFlare, the plan was to sell it as a hosted product with a monthly subscription. We've changed our minds. As of today, SoundFlare is **free and open source under the MIT license**, and the GitHub repo is the product.
-
-No plans, no per-call pricing, no waitlist. Clone it, run it, fork it.
+When we started SoundFlare, the plan was to sell it as a hosted product with a monthly subscription. We changed our minds. The GitHub repo is now the product.
 
 ## Why we're doing this
 
 Voice agents fail in ways that are hard to see. An agent says "you're booked for Friday" without ever calling the booking API. It makes up a copay amount. The LLM step quietly takes three seconds and the caller hangs up. You only find out when a customer complains.
 
-Every team building voice AI needs a way to catch this, and we think that tooling should be something you can read, run on your own infrastructure, and bend to fit your stack. Call recordings and transcripts are sensitive data. They shouldn't have to leave your servers just so you can debug them.
+Every team building voice AI needs a way to catch this, and we think that tooling should be something you can read, run on your own infrastructure, and bend to fit your stack. Call recordings and transcripts are sensitive data. They shouldn't have to move into yet another vendor's cloud just so you can debug them.
 
 ## What's in the box
 
 SoundFlare is a complete dashboard for building, testing, and monitoring voice agents, built primarily for [Trillet AI](https://trillet.ai) and [LiveKit](https://livekit.io):
 
-- **AI call reviews.** A Gemini-powered reviewer reads each call and checks the agent's claims against what actually happened, flagging hallucinations, wrong actions, and failed API calls.
+- **AI call reviews.** An LLM reviewer reads each call and checks the agent's claims against what actually happened, flagging hallucinations, wrong actions, and failed API calls. Out of the box it uses Gemini on Vertex AI in your own Google Cloud project; because the code is yours, you can point it at a model you host instead.
 - **Call logs and traces.** Transcripts, recordings, and a span-level waterfall of STT, LLM, tool, and TTS timing for every turn.
 - **Metrics.** Latency, token usage, and cost per call, plus a chart builder for custom totals.
 - **Automated evaluations.** AI-generated callers that stress-test your agent on happy and unhappy paths.
@@ -52,5 +52,7 @@ session_id = soundflare.start_session(session=session)
 ## Get involved
 
 SoundFlare gets better with every team that runs it on real traffic. If something breaks, [open an issue](https://github.com/TrilletAI/Soundflare/issues). If you build something useful, send a pull request. And if you just want to talk voice AI, come find us on [Discord](https://discord.gg/hrj7H82WQG).
+
+Rather not run it yourself? [Trillet](https://trillet.ai) ships a refined, actively maintained version of SoundFlare built into its voice AI platform, and you can keep using the open-source version alongside it.
 
 If SoundFlare saves you a debugging session, a star on [GitHub](https://github.com/TrilletAI/Soundflare) goes a long way.

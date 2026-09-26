@@ -132,3 +132,52 @@
   margin-left: 0;
   margin-right: 0;
 }
+
+/* Tables (GFM) */
+.sf-prose table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.sf-prose th,
+.sf-prose td {
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  padding: 0.75em 1em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.sf-prose th {
+  color: #fff;
+  font-weight: 700;
+  border-bottom-color: rgb(255 77 0 / 0.4);
+}
+
+.sf-prose td:first-child {
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* TL;DR summary at the top of each post */
+.sf-prose .sf-tldr {
+  border: 1px solid rgb(255 77 0 / 0.3);
+  border-left: 3px solid #ff4d00;
+  border-radius: 0.75rem;
+  background: rgb(255 77 0 / 0.06);
+  padding: 1.1rem 1.4rem;
+  color: rgb(255 255 255 / 0.88);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.sf-prose .sf-tldr-label {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: #ff4d00;
+}

@@ -14,15 +14,25 @@ export interface BlogPost {
   url: string;
   title: string;
   description: string;
+  tldr?: string;
   date: Date;
   author: string;
+  authorTitle?: string;
   tags: string[];
+  featured: boolean;
   readingMinutes: number;
   page: BlogPage;
 }
 
 function toPost(page: BlogPage): BlogPost {
-  const data = page.data as BlogPage['data'] & { date?: unknown; author?: unknown; tags?: unknown };
+  const data = page.data as BlogPage['data'] & {
+    date?: unknown;
+    author?: unknown;
+    authorTitle?: unknown;
+    tags?: unknown;
+    featured?: unknown;
+    tldr?: unknown;
+  };
   const date = new Date(String(data.date));
   if (Number.isNaN(date.getTime())) {
     throw new Error(`Blog post "${page.url}" needs a valid \`date\` in its frontmatter (e.g. 2026-09-26)`);
@@ -35,20 +45,23 @@ function toPost(page: BlogPage): BlogPost {
     url: page.url,
     title: data.title,
     description: data.description ?? '',
+    tldr: typeof data.tldr === 'string' ? data.tldr : undefined,
     date,
     author: typeof data.author === 'string' ? data.author : 'The SoundFlare team',
+    authorTitle: typeof data.authorTitle === 'string' ? data.authorTitle : undefined,
     tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
+    featured: data.featured === true,
     readingMinutes: Math.max(1, Math.round(words / 220)),
     page,
   };
 }
 
-// Newest first
+// Featured posts first, then newest first
 export function getPosts(): BlogPost[] {
   return blogSource
     .getPages()
     .map(toPost)
-    .sort((a, b) => b.date.getTime() - a.date.getTime());
+    .sort((a, b) => Number(b.featured) - Number(a.featured) || b.date.getTime() - a.date.getTime());
 }
 
 export function getPost(slug: string[]): BlogPost | undefined {

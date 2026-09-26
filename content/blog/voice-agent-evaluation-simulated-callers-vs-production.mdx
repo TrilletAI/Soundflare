@@ -1,0 +1,70 @@
+---
+title: "What simulated callers can't find: voice agent evaluation vs production reality"
+description: AI-generated test callers are great pre-flight checks. But most real-world voice agent failures never show up in agent-to-agent testing. Here is where each approach fits.
+date: 2026-09-26
+author: Ming Xu
+authorTitle: Co-founder, SoundFlare and Trillet
+tags: [evaluation, testing, production]
+tldr: "Simulated AI callers are the right tool for pre-launch and regression testing, but most real production failures do not come from agent-to-agent testing. They come from real callers and real downstream systems misbehaving. Use simulation to decide if an agent is safe to ship, and production observability inside your own environment to find out what actually happened."
+---
+
+The voice agent evaluation market has converged on a compelling pitch: point a fleet of AI-generated callers at your agent, have them play angry customers, confused grandparents, and people who change their mind mid-sentence, and score the results. Run it on every prompt change and you have regression testing for voice. CI for phone calls.
+
+It's a good idea, and we use it ourselves. But the failures that cost us the most in production were not the kind a simulated caller finds.
+
+**Who this is for:** voice AI builders deciding how to test agents, contact-center teams planning QA after deployment, and anyone comparing voice agent eval platforms and wondering what they actually cover.
+
+## What agent-to-agent testing is good at
+
+Credit where it is due. Simulated callers are the best tool available for pre-flight testing:
+
+- **Prompt regressions.** You tweak the system prompt to fix one flow and break another. A suite of scripted scenarios catches it before customers do.
+- **Coverage of known paths.** Happy paths, common unhappy paths, cancellations, reschedules, off-topic questions. Write them once, run them forever.
+- **Load and variety.** Hundreds of conversations in minutes, with personas and accents you would never get from internal testers.
+- **Launch readiness.** A clean simulation run is a reasonable bar for "safe to put in front of real callers."
+
+SoundFlare includes automated evaluations for exactly these reasons: AI callers that stress-test an agent on happy and unhappy paths before it goes live.
+
+## Where simulation runs out of road
+
+The trouble is that a simulated caller is, fundamentally, another language model talking to your language model. It inherits the same blind spots in three ways.
+
+**It plays against the systems you expected.** Simulations typically hit a staging API, or production on a quiet afternoon. The real failures come from production systems on bad days: rate limits, timeouts, a legacy scheduling system that returns a 200 with an error message inside the body. We lost a real booking to a failed confirmation step in a clinic's system. No test script would have predicted it. That story is in [the booking that never was](/blog/silent-api-failure-voice-agent-booking).
+
+**It behaves like a model, not a person.** Real callers talk over the agent, go quiet to look for their insurance card, have a dog barking in the background, answer a yes-or-no question with a story. Models can imitate some of this, but they imitate what they have seen. The long tail of human behavior is exactly the part they haven't.
+
+**It scores the conversation, not the outcome.** Most eval scoring looks at the transcript: did the agent follow instructions, stay on topic, reach the goal? The outcome (did the booking actually land in the clinic's system?) usually isn't part of the grade. We unpack why that matters in ["task complete" is lying to you](/blog/how-to-evaluate-if-a-voice-agent-call-worked).
+
+## The visibility problem nobody mentions
+
+There is a deeper, structural issue with most third-party evaluation platforms, and it applies to their production monitoring features too.
+
+These platforms integrate with the voice AI platform. They receive the same call logs, transcripts, and recordings the platform already has. So when it comes to production, **they can see what the voice platform can see, and nothing more.** If the platform can't see why the client's API failed, neither can the eval layer on top of it. For the customer, that adds little beyond what the platform already provides.
+
+Getting past that line means seeing inside the client's environment: their API responses, their data. In healthcare and other regulated industries, that access comes with serious compliance requirements, and most clients will not extend it to yet another vendor. We explain why that pushes observability toward open source in [why voice AI observability has to be open source](/blog/why-voice-ai-observability-has-to-be-open-source).
+
+## Use both, and know which is which
+
+The right setup is not simulation *or* production monitoring. It is both, with clear jobs:
+
+| | Pre-flight (simulation) | In-flight (production observability) |
+|---|---|---|
+| **When** | Before launch, on every change | Every real call, continuously |
+| **Finds** | Prompt regressions, known edge cases | Downstream failures, real caller behavior, latency spikes |
+| **Sees** | The conversation | The conversation, every tool call's request and response, and timing |
+| **Answers** | "Is this safe to ship?" | "What actually happened on this call, and whose side failed?" |
+
+SoundFlare is built to cover both in one open stack: automated evaluations before launch, and in production, AI call reviews that compare what the agent said with what every API actually returned, plus span-level traces for every turn. Because it runs on your own infrastructure, it can see the parts of the call a hosted tool can't.
+
+If you'd rather not host it, [Trillet](https://trillet.ai) ships a refined, actively maintained version of SoundFlare inside its SOC 2 and ISO 27001 compliant voice AI platform. The [open-source version](https://github.com/TrilletAI/Soundflare) stays free, and you can keep using it either way.
+
+## Frequently asked questions
+
+**What is voice agent regression testing?**
+Running a fixed suite of simulated conversations against your agent on every change, and comparing results, so a fix in one flow doesn't silently break another.
+
+**Can simulated callers replace production monitoring?**
+No. They test the conversations you thought of, against systems behaving normally. Production monitoring catches what actually happens with real callers and real downstream systems.
+
+**Why do SaaS eval tools miss client-side and webhook failures?**
+They integrate with the voice platform and see what it sees. Failures inside the client's own systems are outside that view unless the monitoring runs inside the client's environment.
