@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { formatPostDate, getPosts, type BlogPost } from '@/lib/blog'
-import { GITHUB_URL } from '@/components/landing/github'
+import { GITHUB_URL } from '@/components/landing/github-urls'
 
 export const metadata: Metadata = {
   title: 'Blog | SoundFlare',

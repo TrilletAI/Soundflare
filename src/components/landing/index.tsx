@@ -22,7 +22,8 @@ import { cn } from "@/lib/utils"
 import Header from "./landing-header"
 import Footer from "./footer"
 import { LandingStyles } from "./styles"
-import { GITHUB_URL, SDK_GITHUB_URL, useGithubStars } from "./github"
+import { useGithubStars } from "./github"
+import { GITHUB_URL, SDK_GITHUB_URL } from "./github-urls"
 import { CodeWindow, MetricsMock, MonoLabel, ReviewMock, WaterfallMock, Waveform } from "./visuals"
 
 const stack = ["LiveKit", "Trillet", "OpenAI", "Gemini", "ElevenLabs", "Google TTS", "Sarvam", "Supabase", "Docker"]

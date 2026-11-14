@@ -1,15 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-export const GITHUB_URL = 'https://github.com/TrilletAI/Soundflare'
-export const SDK_GITHUB_URL = 'https://github.com/TrilletAI/soundflare-sdk'
+import { GITHUB_URL } from './github-urls'
 
 // Shared across every component on the page so the GitHub API is hit once
 let starsRequest: Promise<number | null> | null = null
 
 function fetchStars() {
-  starsRequest ??= fetch('https://api.github.com/repos/TrilletAI/Soundflare')
+  const repo = GITHUB_URL.replace(/^https:\/\/github\.com\//, '')
+  starsRequest ??= fetch(`https://api.github.com/repos/${repo}`)
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => (typeof data?.stargazers_count === 'number' ? data.stargazers_count : null))
     .catch(() => null)
